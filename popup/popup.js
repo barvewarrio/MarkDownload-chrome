@@ -195,7 +195,16 @@ async function polishWithAI() {
     const res = await chrome.runtime.sendMessage({ type: 'md:aiPolish', markdown: text });
     if (res && res.ok && res.markdown) {
       if (res.applied === false) {
-        showToast('未做改动（未开启相关 AI 选项）', true);
+        // warning 来自离屏文档：Key 缺失 / 网络 / 接口 / 超时等真实原因。
+        if (res.warning) {
+          showToast(res.warning, true);
+          return;
+        }
+        if (res.reason === 'disabled') {
+          showToast('AI 优化未开启，请先到 ⚙️ 设置中开启并配置', true);
+          return;
+        }
+        showToast('AI 未对内容做改动', false);
         return;
       }
       cm.setValue(res.markdown);

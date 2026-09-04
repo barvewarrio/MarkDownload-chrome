@@ -15,8 +15,11 @@
  *                        用于“把链接复制为 Markdown”）
  *   { action: "formatObsidianFolder", article } -> { folder }
  *
- * 以下代码均从 MV2 background.js 的转换半区移植而来，改动有两点：库在本文档加载；
- * getOptions() 是本地的拷贝（离屏文档里 browser.storage 同样可用）。
+ * 以下代码均从 MV2 background.js 的转换半区移植而来。
+ *
+ * 重要：MV3 的离屏文档只暴露 messaging、没有 chrome.storage（chrome.storage.sync/
+ * local 均为 undefined）。因此这里【不自读设置】——options 与 DeepSeek Key 都由
+ * service worker 读好、随每条消息下发（见 background.js 的 offscreen() 助手）。
  */
 
 const defaultOptions = {
@@ -31,12 +34,13 @@ const defaultOptions = {
   aiEnabled: false, aiClean: true, aiTags: false, aiSummary: false, aiTranslate: false, aiTargetLang: ""
 };
 
-async function getOptions() {
-  let options = defaultOptions;
-  try { options = await browser.storage.sync.get(defaultOptions); } catch (err) { console.error(err); }
-  // 未指定 Obsidian 文件夹时默认放进“剪藏/”（storage 里的旧空值也要归一化）。
-  if (!options.obsidianFolder) { options.obsidianFolder = '剪藏/'; options = { ...options }; }
-  return options;
+// 把 SW 下发的 options 与默认值合并成一份“本动作专用”的拷贝。
+// 离屏文档可能同时处理多个动作（并发），各自持有独立对象，避免互相污染；
+// 消息里没带 options（如极端直连场景）时退化为纯默认值。
+function resolveOptions(msgOptions) {
+  const merged = { ...defaultOptions, ...(msgOptions || {}) };
+  if (!merged.obsidianFolder) { merged.obsidianFolder = '剪藏/'; }
+  return merged;
 }
 
 // ---------------------------------------------------------------------------
@@ -248,8 +252,7 @@ function textReplace(string, article, disallowedChars = null) {
   return string;
 }
 
-async function convertArticleToMarkdown(article, downloadImages = null) {
-  const options = await getOptions();
+async function convertArticleToMarkdown(article, options, downloadImages = null) {
   if (downloadImages != null) { options.downloadImages = downloadImages; }
   if (options.includeTemplate) {
     options.frontmatter = textReplace(options.frontmatter, article) + '\n';
@@ -261,7 +264,7 @@ async function convertArticleToMarkdown(article, downloadImages = null) {
     .split('/').map(s => generateValidFileName(s, options.disallowedChars)).join('/');
   let result = turndown(article.content, options, article);
   if (options.downloadImages) {
-    result = await preDownloadImages(result.imageList, result.markdown);
+    result = await preDownloadImages(result.imageList, result.markdown, options);
   }
   return result;
 }
@@ -281,8 +284,7 @@ function generateValidFileName(title, disallowedChars = null) {
   return name;
 }
 
-async function preDownloadImages(imageList, markdown) {
-  const options = await getOptions();
+async function preDownloadImages(imageList, markdown, options) {
   let newImageList = {};
   await Promise.all(Object.entries(imageList).map(([src, filename]) => new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -407,14 +409,14 @@ async function getArticleFromDom(domString) {
 // storage.local，绝不同步云端、不入导出；请求直发 DeepSeek。
 // 任何失败都保留原文，绝不让 AI 问题弄丢剪藏内容。
 
-async function getDeepseekKey() {
-  try {
-    const { deepseekKey } = await browser.storage.local.get({ deepseekKey: '' });
-    return (typeof deepseekKey === 'string' ? deepseekKey : '').trim();
-  } catch (err) {
-    console.error('读取 DeepSeek Key 失败', err);
-    return '';
-  }
+// DeepSeek Key 由 service worker 读好随消息下发（离屏文档读不到 storage.local），
+// 见 aiPolish 动作处理与 background.js 的 offscreen() 助手。这里只做安全转字符串。
+
+// 消息入口统一收口：优先 chrome.runtime（MV3 Promise），兜底 browser.runtime。
+function runtimeOnMessage() {
+  if (chrome.runtime && chrome.runtime.onMessage) return chrome.runtime.onMessage;
+  if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.onMessage) return browser.runtime.onMessage;
+  throw new Error('当前环境没有可用的 runtime.onMessage');
 }
 
 // 是否需要真的请求 AI（总开关 + 至少一项能力开启）。
@@ -470,12 +472,28 @@ function buildAiSystemPrompt(options) {
   return parts.join('\n');
 }
 
-// 调用 DeepSeek 整理一段 markdown。一切失败（含超时、Key 缺失、接口错误）都原样返回。
-async function aiPolish(markdown, options) {
+// 屏蔽错误信息里可能夹带的 Key 明文（如 sk-xxx / Bearer …），只留安全摘要。
+function safeAiError(err) {
+  const raw = String((err && err.message) || err || 'AI 请求失败');
+  return raw
+    .replace(/Bearer\s+\S+/gi, 'Bearer •••')
+    .replace(/sk-[A-Za-z0-9_-]+/gi, 'sk-•••')
+    .slice(0, 300);
+}
+
+// 调用 DeepSeek 整理一段 markdown。任何失败都保留原文并给出原因，
+// 绝不因 AI 问题弄丢剪藏内容。
+// 返回 { ok, markdown, error? }：
+//   ok === true   请求已成功处理；markdown 为结果（applied=true 表示确有改动）
+//   ok === false  未整理（Key 缺失 / 网络 / 接口 / 超时）；markdown 恒为原文，error 为原因
+async function aiPolish(markdown, options, key) {
   const text = String(markdown || '');
-  if (!text.trim()) return text;
-  const key = await getDeepseekKey();
-  if (!key) { console.warn('AI 优化跳过：未配置 DeepSeek API Key'); return text; }
+  if (!text.trim()) return { ok: true, markdown: text, applied: false };
+
+  if (!key) {
+    console.warn('AI 优化跳过：未配置 DeepSeek API Key');
+    return { ok: false, markdown: text, error: '未配置 DeepSeek API Key（请到 ⚙️ 设置 → AI 优化 填写）' };
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 90000);
@@ -500,17 +518,31 @@ async function aiPolish(markdown, options) {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      throw new Error('DeepSeek HTTP ' + res.status + ' ' + body.slice(0, 200));
+      let msg;
+      if (res.status === 401 || res.status === 403) {
+        msg = 'DeepSeek 认证失败：API Key 无效或已过期';
+      } else if (res.status === 402 || res.status === 429) {
+        msg = 'DeepSeek 账户余额不足或请求过频（HTTP ' + res.status + '）';
+      } else if (res.status >= 500) {
+        msg = 'DeepSeek 服务暂时不可用（HTTP ' + res.status + '），请稍后重试';
+      } else {
+        msg = 'DeepSeek 返回错误（HTTP ' + res.status + '）：' + body.slice(0, 120);
+      }
+      throw new Error(msg);
     }
     const data = await res.json();
     const out = data && data.choices && data.choices[0] &&
       data.choices[0].message && data.choices[0].message.content;
-    if (!out) throw new Error('DeepSeek 返回为空');
+    if (!out) throw new Error('DeepSeek 返回为空，请重试');
     const trimmed = String(out).trim();
-    return trimmed || text;
+    return { ok: true, markdown: trimmed || text, applied: trimmed !== text };
   } catch (err) {
-    console.warn('AI 优化失败，保留原文：', err && err.message || err);
-    return text;
+    if (err && err.name === 'AbortError') {
+      console.warn('AI 优化超时（>90 秒），保留原文');
+      return { ok: false, markdown: text, error: 'AI 请求超时（>90 秒），已保留原文' };
+    }
+    console.warn('AI 优化失败，保留原文：', safeAiError(err));
+    return { ok: false, markdown: text, error: safeAiError(err) };
   } finally {
     clearTimeout(timer);
   }
@@ -519,25 +551,25 @@ async function aiPolish(markdown, options) {
 // ---------------------------------------------------------------------------
 // IPC
 // ---------------------------------------------------------------------------
-browser.runtime.onMessage.addListener((message) => {
+runtimeOnMessage().addListener((message) => {
   if (!message || typeof message.action !== 'string') return undefined;
 
   if (message.action === 'clip') {
     return (async () => {
       try {
+        const options = resolveOptions(message.options);
         const article = await getArticleFromDom(message.dom);
         if (message.selection && message.clipSelection) {
           article.content = message.selection;
         }
-        const { markdown, imageList } = await convertArticleToMarkdown(article);
-        article.title = await formatTitle(article);
-        const mdClipsFolder = await formatMdClipsFolder(article);
+        const { markdown, imageList } = await convertArticleToMarkdown(article, options);
+        article.title = await formatTitle(article, options);
+        const mdClipsFolder = await formatMdClipsFolder(article, options);
         // 保存到本地 / Obsidian、右键发送等全流程都在此处定稿 Markdown；
-        // 若开启了 AI 优化，在这里统一加工一次（失败则原样保留）。
+        // 若开启了 AI 优化，在这里统一加工一次（失败则原样保留，不影响剪藏）。
         let finalMarkdown = markdown;
         try {
-          const opts = await getOptions();
-          if (aiWanted(opts)) finalMarkdown = await aiPolish(markdown, opts);
+          if (aiWanted(options)) finalMarkdown = (await aiPolish(markdown, options, message.deepseekKey)).markdown;
         } catch (err) {
           console.warn('自动 AI 优化失败，保留原文：', err && err.message || err);
         }
@@ -552,7 +584,7 @@ browser.runtime.onMessage.addListener((message) => {
     return (async () => {
       try {
         const article = await getArticleFromDom(message.dom);
-        const options = await getOptions();
+        const options = resolveOptions(message.options);
         options.frontmatter = options.backmatter = '';
         options.downloadImages = false;
         const { markdown } = turndown(message.html, options, article);
@@ -566,7 +598,8 @@ browser.runtime.onMessage.addListener((message) => {
   if (message.action === 'formatObsidianFolder') {
     return (async () => {
       try {
-        const folder = await formatObsidianFolder(message.article);
+        const options = resolveOptions(message.options);
+        const folder = await formatObsidianFolder(message.article, options);
         return { ok: true, folder: folder };
       } catch (err) {
         return { ok: false, error: String(err && err.message || err) };
@@ -580,7 +613,8 @@ browser.runtime.onMessage.addListener((message) => {
     return (async () => {
       try {
         const article = await getArticleFromDom(message.dom);
-        const title = await formatTitle(article);
+        const options = resolveOptions(message.options);
+        const title = await formatTitle(article, options);
         return { ok: true, title: title, pageTitle: article.pageTitle, baseURI: article.baseURI };
       } catch (err) {
         return { ok: false, error: String(err && err.message || err) };
@@ -593,13 +627,15 @@ browser.runtime.onMessage.addListener((message) => {
   if (message.action === 'aiPolish') {
     return (async () => {
       try {
-        const options = await getOptions();
+        const options = resolveOptions(message.options);
         const input = String(message.markdown || '');
         if (!aiWanted(options)) {
-          return { ok: true, markdown: input, applied: false };
+          return { ok: true, markdown: input, applied: false, reason: 'disabled' };
         }
-        const out = await aiPolish(input, options);
-        return { ok: true, markdown: out, applied: out !== input };
+        const out = await aiPolish(input, options, message.deepseekKey);
+        if (out.ok) return { ok: true, markdown: out.markdown, applied: out.applied };
+        // 请求失败（Key 缺失 / 网络 / 接口 / 超时）：保留原文，附上原因供弹窗提示。
+        return { ok: true, markdown: input, applied: false, warning: out.error };
       } catch (err) {
         return { ok: false, error: String(err && err.message || err) };
       }
@@ -656,15 +692,13 @@ browser.runtime.onMessage.addListener((message) => {
   return undefined;
 });
 
-async function formatTitle(article) {
-  let options = await getOptions();
+async function formatTitle(article, options) {
   let title = textReplace(options.title, article, options.disallowedChars + '/');
   title = title.split('/').map(s => generateValidFileName(s, options.disallowedChars)).join('/');
   return title;
 }
 
-async function formatMdClipsFolder(article) {
-  let options = await getOptions();
+async function formatMdClipsFolder(article, options) {
   let mdClipsFolder = '';
   if (options.mdClipsFolder) {
     mdClipsFolder = textReplace(options.mdClipsFolder, article, options.disallowedChars);
@@ -674,8 +708,7 @@ async function formatMdClipsFolder(article) {
   return mdClipsFolder;
 }
 
-async function formatObsidianFolder(article) {
-  let options = await getOptions();
+async function formatObsidianFolder(article, options) {
   let obsidianFolder = '';
   if (options.obsidianFolder) {
     obsidianFolder = textReplace(options.obsidianFolder, article, options.disallowedChars);

@@ -48,6 +48,19 @@ async function offscreen(action, payload) {
   return res;
 }
 
+// 离屏文档没有 chrome.storage，读不到设置/Key（MV3 离屏只暴露 messaging）。
+// 因此本 worker 先 resolve options（存 sync）与 DeepSeek Key（存 local），
+// 随消息一起传给离屏；离屏引擎按动作自行 resolveOptions 合并。
+// Key 仅在内存中用于本次请求，绝不入导出/日志/仓库。
+async function offscreenWithOptions(action, payload = {}) {
+  const [options, { deepseekKey }] = await Promise.all([
+    getOptions(),
+    chrome.storage.local.get({ deepseekKey: '' }),
+  ]);
+  const key = typeof deepseekKey === 'string' ? deepseekKey.trim() : '';
+  return offscreen(action, { options, deepseekKey: key, ...payload });
+}
+
 // ---------------------------------------------------------------------------
 // 内容脚本桥接
 // ---------------------------------------------------------------------------
@@ -82,7 +95,7 @@ function isAddressable(url) {
 async function clipTab(tabId, selectionOnly) {
   const clip = await getClipData(tabId, selectionOnly);
   if (!clip) throw new Error('Cannot read this page (restricted or not supported).');
-  const res = await offscreen('clip', {
+  const res = await offscreenWithOptions('clip', {
     dom: clip.dom,
     selection: selectionOnly ? clip.selection : undefined,
     clipSelection: true,
@@ -99,7 +112,7 @@ async function clipTab(tabId, selectionOnly) {
 async function downloadMarkdown({ markdown, title, mdClipsFolder = '', imageList = {}, saveAs }) {
   const options = await getOptions();
   const filename = (mdClipsFolder || '') + (title || 'page') + '.md';
-  const res = await offscreen('doDownload', { markdown, imageList });
+  const res = await offscreen('doDownload', { markdown, imageList }); // doDownload 只造 blob，无需 options
 
   // .md 文件本体。
   await chrome.downloads.download({
@@ -202,20 +215,19 @@ async function copyLink(tab, info) {
   const html = `<a href="${href}">${linkText}</a>`;
   const clip = await getClipData(tab.id, false);
   if (!clip) return;
-  const res = await offscreen('convertLink', { dom: clip.dom, html });
+  const res = await offscreenWithOptions('convertLink', { dom: clip.dom, html });
   await copyTo(tab, res.markdown);
 }
 
 async function copyTabLink(tab) {
   const clip = await getClipData(tab.id, false);
   if (!clip) return;
-  const res = await offscreen('titleForDom', { dom: clip.dom });
+  const res = await offscreenWithOptions('titleForDom', { dom: clip.dom });
   const title = res.title || tab.title || 'page';
   await copyTo(tab, `[${title}](${clip.baseURI || tab.url})`);
 }
 
 async function copyTabLinks(tab, highlightedOnly) {
-  const options = await getOptions();
   const q = { currentWindow: true };
   if (highlightedOnly) q.highlighted = true;
   const tabs = await chrome.tabs.query(q);
@@ -226,7 +238,7 @@ async function copyTabLinks(tab, highlightedOnly) {
     let title = t.title || 'page';
     let url = t.url;
     if (clip) {
-      const r = await offscreen('titleForDom', { dom: clip.dom });
+      const r = await offscreenWithOptions('titleForDom', { dom: clip.dom });
       title = (r && r.title) || title;
       url = clip.baseURI || url;
     }
@@ -239,7 +251,7 @@ async function copyToObsidian(tab, selectionOnly) {
   const res = await clipTab(tab.id, selectionOnly);
   const options = await getOptions();
   await copyTo(tab, res.markdown);
-  const folder = (await offscreen('formatObsidianFolder', { article: res.article })).folder || '';
+  const folder = (await offscreenWithOptions('formatObsidianFolder', { article: res.article })).folder || '';
   const file = folder + res.article.title;
   const vault = options.obsidianVault ? 'vault=' + encodeURIComponent(options.obsidianVault) + '&' : '';
   // Advanced URI 插件注册的是 obsidian://adv-uri（不是 obsidian://advanced-uri）。
@@ -314,7 +326,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // 内容脚本（由弹窗驱动）→ worker：跑完整剪藏。
   if (message && message.type === 'md:clip') {
-    offscreen('clip', {
+    offscreenWithOptions('clip', {
       dom: message.dom,
       selection: message.selection,
       clipSelection: message.clipSelection,
@@ -336,10 +348,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // 弹窗 → worker → 离屏：手动「✨ AI 优化」当前编辑区文本。
-  // 设置与 Key 由离屏侧自读（Key 仅存本机 storage.local），失败保留原文。
+  // 设置与 Key 由本 worker 读好随消息下发（离屏文档没有 chrome.storage），
+  // Key 仅存本机 storage.local，不入导出。失败保留原文。
   if (message && message.type === 'md:aiPolish') {
-    offscreen('aiPolish', { markdown: message.markdown })
-      .then((res) => sendResponse({ ok: true, markdown: res.markdown, applied: res.applied }))
+    offscreenWithOptions('aiPolish', { markdown: message.markdown })
+      .then((res) => sendResponse({
+        ok: true,
+        markdown: res.markdown,
+        applied: res.applied,
+        warning: res.warning,
+        reason: res.reason,
+      }))
       .catch((err) => sendResponse({ ok: false, error: String(err && err.message || err) }));
     return true;
   }
