@@ -1,37 +1,68 @@
-
 <!DOCTYPE html>
+<html lang="zh-CN">
 
-<html>
-  <head>
+<head>
     <meta charset="utf-8">
+    <title>MarkDownload — 剪藏</title>
     <link rel="stylesheet" href="lib/codemirror.css">
-    <link rel="stylesheet" href="lib/xq-dark.css">
     <link rel="stylesheet" href="lib/xq-light.css">
+    <link rel="stylesheet" href="lib/xq-dark.css">
     <link rel="stylesheet" href="popup.css">
-  </head>
+</head>
 
 <body>
-  <div id="container">
-
-    <a href="#" class="button toggle" id="downloadImages"><i class="check"></i>下载图片</a>
-    <button type="button" id="openSettings" class="button link-button">⚙️ 设置</button>
-    <div class="row" id="clipOption">
-      <a href="#" class="button toggle" id="selected"><i class="check"></i>仅选中文字</a>
-      <a href="#" class="button toggle" id="document"><i class="check"></i>整个网页</a>
+    <!-- 载入中：剪藏完成后由 popup.js 隐藏 -->
+    <div id="spinner">
+        <span class="msg">正在剪藏当前页面…</span>
     </div>
-    <a href="#" class="button toggle" id="includeTemplate"><i class="check"></i>包含前置/后置模板</a>
-    <input type="text" id="title"></input>
-    <textarea id="md"></textarea>
-    <a href="#" class="button" id="download">💾 下载 Markdown</a>
-    <a href="#" class="button" id="downloadSelection">💾 下载选中文字</a>
-    <a href="#" class="button" id="aiPolish">✨ AI 优化</a>
-  </div>
-  <div id="spinner"></div>
-  <div id="toast"></div>
-  <script type="application/javascript" src="../browser-polyfill.min.js"></script>
-  <script type="application/javascript" src="lib/codemirror.js"></script>
-  <script type="application/javascript" src="lib/modes/markdown/markdown.js"></script>
-  <script type="application/javascript" src="popup.js"></script>
+
+    <div id="container">
+
+        <!-- 顶栏：品牌 + 设置入口 -->
+        <header class="pop-head">
+            <div class="brand">MarkDownload<span class="brand-sub">网页剪藏</span></div>
+            <button type="button" id="openSettings" class="icon-btn" title="打开设置面板（右侧）" aria-label="打开设置面板">⚙️</button>
+        </header>
+
+        <!-- 剪藏范围 + 快捷开关 -->
+        <section class="card opts">
+            <div class="seg" id="clipOption">
+                <button type="button" class="seg-btn toggle" id="selected">仅选中文字</button>
+                <button type="button" class="seg-btn toggle" id="document">整个网页</button>
+            </div>
+            <button type="button" class="opt toggle" id="includeTemplate"><i class="check"></i><span>包含前置 / 后置模板</span></button>
+            <button type="button" class="opt toggle" id="downloadImages"><i class="check"></i><span>把网页图片一并下载</span></button>
+        </section>
+
+        <!-- 标题 / 文件名 -->
+        <div class="title-field">
+            <label for="title">标题 / 文件名</label>
+            <input type="text" id="title" spellcheck="false" autocomplete="off"
+                placeholder="默认取网页标题" />
+        </div>
+
+        <!-- 正文编辑器 -->
+        <div class="editor">
+            <textarea id="md" spellcheck="false"></textarea>
+        </div>
+
+        <!-- 底部操作 -->
+        <footer class="foot">
+            <button type="button" class="btn primary" id="download">💾 下载 Markdown</button>
+            <div class="foot-row">
+                <button type="button" class="btn ghost" id="downloadSelection">💾 下载选中文字</button>
+                <button type="button" class="btn ghost" id="aiPolish">✨ AI 优化</button>
+            </div>
+        </footer>
+
+    </div>
+
+    <div id="toast"></div>
+
+    <script type="application/javascript" src="../browser-polyfill.min.js"></script>
+    <script type="application/javascript" src="lib/codemirror.js"></script>
+    <script type="application/javascript" src="lib/modes/markdown/markdown.js"></script>
+    <script type="application/javascript" src="popup.js"></script>
 </body>
 
 </html>

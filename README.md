@@ -2,11 +2,13 @@
 
 > 基于 [deathau/MarkDownload](https://github.com/deathau/MarkDownload) 3.4.0 升级改造的 **Manifest V3** 版网页剪藏扩展,适用于 Chrome / Edge。
 
-把网页正文一键存成干净的 **Markdown**:抓取页面 → 提取正文 → 转 Markdown → 下载到本地或发进 Obsidian。界面、右键菜单与设置项均已**中文化**。
+把网页正文一键存成干净的 **Markdown**:抓取页面 → 提取正文 → 转 Markdown → 下载到本地或发进 Obsidian。界面、右键菜单与设置项均已**中文化**,设置面板与剪藏弹窗采用 **Linear 风**设计。
 
 ## ✨ 功能
 
-- **工具栏弹窗剪藏**:点图标进入编辑器,预览 / 修改 Markdown 后再下载或复制
+- **工具栏弹窗剪藏**:点图标进入编辑器,预览 / 修改 Markdown 后再下载;亦可用「✨ AI 优化」一键整理当前文本
+- **右侧设置面板**:弹窗内点 **⚙️ 设置** 直接在浏览器右侧打开设置面板(Linear 风,按「基础 / 图片 / 格式 / AI 优化」分页);扩展管理页的「选项」打开的是同一页面
+- **DeepSeek AI 优化(可选)**:保存到本地 / Obsidian、右键发送前自动整理(去乱码 / 重排标题 / 统一格式),可分别开启自动打标签、生成摘要、翻译(自定目标语言);API Key 由你填写、仅存本机
 - **右键菜单(中文)**:
   - 下载 / 复制「网页」「选中内容」为 Markdown
   - 复制链接、图片为 Markdown
@@ -35,6 +37,16 @@
 - **快速保存**:直接右键 →「下载网页为 Markdown」,或快捷键 `Alt+Shift+D`
 - **发到 Obsidian**(需先配置,见下)
 
+### 🛠 设置面板与 AI 优化(可选)
+
+弹窗点 **⚙️ 设置**(或 `chrome://extensions` → 该扩展 →「详情」→「扩展程序选项」)进入设置面板:
+
+1. **DeepSeek API Key**:切到「AI 优化」页,填入你在 [DeepSeek 开放平台](https://platform.deepseek.com/api_keys) 申请的 Key,回车即保存。
+   > 🔒 **Key 仅存本机**(`storage.local`),**不会**同步到云端、**不会**出现在「导出设置」的 JSON 里、也**不会**提交到仓库——请放心填。
+2. 勾选「启用 AI 优化」,并按需开关:**基础整理**(去乱码 / 重排标题 / 统一格式,保留原文)、**自动打标签**、**生成摘要**、**翻译**(填写目标语言,默认简体中文)。
+3. 之后每次剪藏保存到本地 / Obsidian、或右键发送到 Obsidian,保存前都会自动按设置整理一遍;也可在弹窗里手动点「✨ AI 优化」只整理当前预览文本。
+   > 任何失败(如网络 / Key 失效 / 超时)**都会原样保留原文**,不会因 AI 问题丢失剪藏内容。
+
 ### Obsidian 集成(可选)
 
 「发送到 Obsidian」依赖 Obsidian 的社区插件 **Advanced URI**,一次配置后即可用:
@@ -58,17 +70,23 @@
 ## 🗂 项目结构
 
 ```
-background/background.js    MV3 service worker:调度、右键菜单、下载入口
-offscreen/offscreen.js      offscreen 转换引擎:DOM 解析 → Readability → Turndown
+background/background.js    MV3 service worker:调度、右键菜单、下载入口、aiPolish 转发
+offscreen/offscreen.js      offscreen 转换引擎:DOM 解析 → Readability → Turndown,
+                            以及 DeepSeek AI 整理(剪藏导出出口统一拦截)
 offscreen/offscreen.html    承载转换引擎的离屏文档
 offscreen/lib/              内置依赖(Readability / Turndown / moment 等)
 contentScript/              注入页面抓取 DOM / 写入剪贴板
-options/                    设置页(中文,文件夹预设、Obsidian、模板)
-popup/                      工具栏弹窗编辑器(CodeMirror)
+options/                    设置页 / 右侧设置面板(options.html + options.css + options.js)
+popup/                      工具栏弹窗编辑器(CodeMirror,Linear 风)
 shared/                     公共默认配置
 icons/                      图标
 manifest.json                MV3 清单
 ```
+
+## 🔒 本地数据与安全
+
+- **DeepSeek API Key**:填在设置面板「AI 优化」页,**仅存本机** `chrome.storage.local`(不同步、不进「导出设置」、不入 git)。`.gitignore` 已排除 `.env*`、`*.secret` 等凭据文件。
+- **你的剪藏内容**:仅在你点下载 / 发送时才会带上 Key 请求 DeepSeek 官方接口(`api.deepseek.com`);扩展不会把正文发给第三方。
 
 ## 🧩 二开须知(MV3 关键约束)
 
