@@ -114,6 +114,10 @@ async function clipSite() {
 }
 
 // 下载由 service worker → offscreen 执行（Downloads API + blob）。
+// aiApply：这段文本是否已在弹窗里手动 ✨ 优化过。
+// true  = 未手动优化（编辑器=原文），下载前由 worker 补一次自动 AI 整理；
+// false = 已手动 ✨ 过，保存时不再重复调用。
+let aiAppliedInEditor = false;
 function sendDownloadMessage(text) {
   if (!text) return Promise.resolve();
   return chrome.runtime.sendMessage({
@@ -122,6 +126,7 @@ function sendDownloadMessage(text) {
     title: document.getElementById('title').value,
     mdClipsFolder,
     imageList,
+    aiApply: aiAppliedInEditor ? false : true,
   });
 }
 
@@ -208,6 +213,7 @@ async function polishWithAI() {
         return;
       }
       cm.setValue(res.markdown);
+      aiAppliedInEditor = true; // 已手动优化 → 下载时不再重复自动整理
       showToast('AI 优化完成 ✨');
     } else {
       showToast((res && res.error) || 'AI 优化失败，已保留原文', true);

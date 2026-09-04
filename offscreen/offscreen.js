@@ -565,15 +565,11 @@ runtimeOnMessage().addListener((message) => {
         const { markdown, imageList } = await convertArticleToMarkdown(article, options);
         article.title = await formatTitle(article, options);
         const mdClipsFolder = await formatMdClipsFolder(article, options);
-        // 保存到本地 / Obsidian、右键发送等全流程都在此处定稿 Markdown；
-        // 若开启了 AI 优化，在这里统一加工一次（失败则原样保留，不影响剪藏）。
-        let finalMarkdown = markdown;
-        try {
-          if (aiWanted(options)) finalMarkdown = (await aiPolish(markdown, options, message.deepseekKey)).markdown;
-        } catch (err) {
-          console.warn('自动 AI 优化失败，保留原文：', err && err.message || err);
-        }
-        return { ok: true, markdown: finalMarkdown, article: article, imageList: imageList, mdClipsFolder: mdClipsFolder };
+        // 离屏「clip」只产出【原始】Markdown，供弹窗即时预览 / 后续保存使用。
+        // 自动 AI 整理不放在这里：否则每次打开弹窗的自动剪藏都会先等一次慢速
+        // DeepSeek 请求，预览还会被模型改写（标题超长等）。自动整理由 service
+        // worker 在真正保存（下载 / 发 Obsidian）前调用 aiPolish 动作执行。
+        return { ok: true, markdown: markdown, article: article, imageList: imageList, mdClipsFolder: mdClipsFolder };
       } catch (err) {
         return { ok: false, error: String(err && err.message || err) };
       }

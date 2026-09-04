@@ -61,6 +61,31 @@ async function offscreenWithOptions(action, payload = {}) {
   return offscreen(action, { options, deepseekKey: key, ...payload });
 }
 
+// 是否需要真的请求 AI（总开关 + 至少一项能力开启）。
+function aiWanted(options) {
+  return !!(options.aiEnabled &&
+    (options.aiClean || options.aiTags || options.aiSummary || options.aiTranslate));
+}
+
+// “快速保存”路径（右键 / 快捷键下载与复制、发送到 Obsidian）保存前的自动整理。
+// 弹窗打开走原始即时预览（由 clip 出口直出），不在此列——那里要快、且所见即所得。
+// 已开启 AI 且确有改动才替换内容；Key 缺失 / 失败一律原样保留，绝不让 AI 弄丢剪藏。
+async function polishBeforeSave(markdown) {
+  const options = await getOptions();
+  if (!aiWanted(options)) return markdown;
+  const { deepseekKey } = await chrome.storage.local.get({ deepseekKey: '' });
+  const key = typeof deepseekKey === 'string' ? deepseekKey.trim() : '';
+  if (!key) return markdown; // 没配 Key → 原样保存，不阻塞
+  try {
+    const res = await offscreen('aiPolish', { markdown, options, deepseekKey: key });
+    if (res && res.ok && res.applied) return res.markdown;
+    return markdown;
+  } catch (err) {
+    console.warn('自动 AI 整理失败，保留原文：', err && err.message || err);
+    return markdown;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 内容脚本桥接
 // ---------------------------------------------------------------------------
@@ -202,10 +227,12 @@ async function toggleSetting(setting) {
 // ---------------------------------------------------------------------------
 async function doClip(tab, selectionOnly, mode) {
   const res = await clipTab(tab.id, selectionOnly);
+  // 快速保存路径：保存 / 复制前按设置自动 AI 整理（失败保留原文）。
+  const finalMarkdown = await polishBeforeSave(res.markdown);
   if (mode === 'download') {
-    await downloadMarkdown({ markdown: res.markdown, title: res.article.title, mdClipsFolder: res.mdClipsFolder, imageList: res.imageList });
+    await downloadMarkdown({ markdown: finalMarkdown, title: res.article.title, mdClipsFolder: res.mdClipsFolder, imageList: res.imageList });
   } else {
-    await copyTo(tab, res.markdown);
+    await copyTo(tab, finalMarkdown);
   }
 }
 
@@ -250,7 +277,10 @@ async function copyTabLinks(tab, highlightedOnly) {
 async function copyToObsidian(tab, selectionOnly) {
   const res = await clipTab(tab.id, selectionOnly);
   const options = await getOptions();
-  await copyTo(tab, res.markdown);
+  // 发送到 Obsidian 属于“快速保存”，内容与下载/复制一致地先做自动 AI 整理
+  // （右键发 Obsidian 与“下载为 Markdown”共用 doClip 剪藏；手动入口发原样）。
+  const finalMarkdown = await polishBeforeSave(res.markdown);
+  await copyTo(tab, finalMarkdown);
   const folder = (await offscreenWithOptions('formatObsidianFolder', { article: res.article })).folder || '';
   const file = folder + res.article.title;
   const vault = options.obsidianVault ? 'vault=' + encodeURIComponent(options.obsidianVault) + '&' : '';
@@ -336,8 +366,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // 弹窗 → worker：用户在弹窗里预览/编辑 markdown 后请求下载。
+  // 弹窗预览是“所见即所得”的原文；保存前若开启了 AI 且这段文本未被手动
+  // ✨ 处理过（预览 = 原文，未有编辑时），这里补一次自动整理。
   if (message && message.type === 'md:download') {
-    downloadMarkdown(message).catch((err) => console.error('download failed', err));
+    (async () => {
+      let md = message.markdown;
+      if (message.aiApply !== false) md = await polishBeforeSave(md);
+      await downloadMarkdown({ ...message, markdown: md });
+    })().catch((err) => console.error('download failed', err));
     return false;
   }
 
