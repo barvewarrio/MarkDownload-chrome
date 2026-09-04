@@ -1,31 +1,29 @@
 /*
- * Offscreen conversion engine (MV3).
+ * 离屏转换引擎（MV3）。
  *
- * The MV3 background service worker has no DOM. The HTML→Markdown pipeline
- * (DOMParser, Readability, Turndown node surgery, XHR/FileReader for images)
- * needs a real DOM, so it lives in this hidden offscreen document. The service
- * worker drives it over runtime messages.
+ * MV3 后台 service worker 没有 DOM，而 HTML→Markdown 流水线（DOMParser、
+ * Readability、Turndown 节点手术、图片的 XHR/FileReader）需要真实 DOM，
+ * 因此这部分逻辑放在这个隐藏的离屏文档里，由 service worker 通过运行时消息驱动。
  *
- * Exposed actions (browser.runtime.sendMessage from the service worker):
+ * 对外暴露的动作（service worker 用 browser.runtime.sendMessage 调用）：
  *   { action: "clip", dom, selection?, clipSelection? }
  *     -> { markdown, article, imageList, mdClipsFolder }
- *        Full pipeline: parse DOM -> Readability article -> convert -> format
- *        title/mdClipsFolder. If clipSelection && selection, clip the selection.
+ *        完整流水线：解析 DOM → Readability 提取正文 → 转换 → 生成标题与
+ *        mdClipsFolder。若 clipSelection 且有选中区，则只剪选中区。
  *   { action: "convertLink", dom, html }
- *     -> { markdown }   (Readability article + turndown of an arbitrary HTML
- *                        snippet, for "Copy link as Markdown")
+ *     -> { markdown }   （Readability 提取 + 对任意 HTML 片段做 Turndown，
+ *                        用于“把链接复制为 Markdown”）
  *   { action: "formatObsidianFolder", article } -> { folder }
  *
- * Everything below is ported from the MV2 background.js conversion half with
- * two changes: the libraries load from this document, and getOptions() is a
- * local copy (browser.storage works fine in an offscreen document).
+ * 以下代码均从 MV2 background.js 的转换半区移植而来，改动有两点：库在本文档加载；
+ * getOptions() 是本地的拷贝（离屏文档里 browser.storage 同样可用）。
  */
 
 const defaultOptions = {
   headingStyle: "atx", hr: "___", bulletListMarker: "-", codeBlockStyle: "fenced",
   fence: "```", emDelimiter: "_", strongDelimiter: "**", linkStyle: "inlined",
   linkReferenceStyle: "full", imageStyle: "markdown", imageRefStyle: "inlined",
-  frontmatter: "---\ncreated: {date:YYYY-MM-DDTHH:mm:ss} (UTC {date:Z})\ntags: [{keywords}]\nsource: {baseURI}\nauthor: {byline}\n---\n\n# {pageTitle}\n\n> ## Excerpt\n> {excerpt}\n\n---",
+  frontmatter: "---\ncreated: {date:YYYY-MM-DDTHH:mm:ss} (UTC {date:Z})\ntags: [{keywords}]\nsource: {baseURI}\nauthor: {byline}\n---\n\n# {pageTitle}\n\n> ## 摘要\n> {excerpt}\n\n---",
   backmatter: "", title: "{pageTitle}", includeTemplate: false, saveAs: false,
   downloadImages: false, imagePrefix: '{pageTitle}/', mdClipsFolder: "",
   disallowedChars: '[]#^', turndownEscape: true,
@@ -41,7 +39,7 @@ async function getOptions() {
 }
 
 // ---------------------------------------------------------------------------
-// Conversion engine — ported verbatim from MV2 background.js
+// 转换引擎 —— 从 MV2 background.js 原样移植
 // ---------------------------------------------------------------------------
 
 TurndownService.prototype.defaultEscape = TurndownService.prototype.escape;
@@ -174,9 +172,9 @@ function turndown(content, options, article) {
 
   let markdown = options.frontmatter + turndownService.turndown(content) + options.backmatter;
 
-  // strip out non-printing special characters CodeMirror shows as red dots
-  // (RegExp built from a \u-escaped string, because regex literals do not
-  //  interpret \uXXXX and raw control bytes must not appear in the source)
+  // 剔除 CodeMirror 会显示为红点的不可打印特殊字符
+  // （用 \u 转义字符串构造正则，因为正则字面量不解析 \uXXXX，
+  //   且源码里不允许出现原始控制字节）
   const specialCharsPattern = new RegExp('[\u0000-\u0009\u000b\u000c\u000e-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u2028\u2029\ufeff\ufff9-\ufffc]', 'g');
   markdown = markdown.replace(specialCharsPattern, '');
 
@@ -270,7 +268,7 @@ async function convertArticleToMarkdown(article, downloadImages = null) {
 function generateValidFileName(title, disallowedChars = null) {
   if (!title) return title;
   else title = title + '';
-  // remove < > : " / \ | ? *
+  // 去掉文件名中的 < > : " / \ | ? *
   var illegalRe = /[\/\?<>\\:\*\|":]/g;
   var name = title.replace(illegalRe, "").replace(/ /g, ' ');
   if (disallowedChars) {
@@ -449,8 +447,8 @@ browser.runtime.onMessage.addListener((message) => {
     })();
   }
 
-  // Lightweight: produce a formatted title + page meta for a given DOM string,
-  // used by the "copy tab as markdown link" family (which only needs the title).
+  // 轻量动作：为给定的 DOM 字符串生成格式化标题 + 页面元信息，
+  // 供“把标签页复制为 markdown 链接”一类使用（只需要标题）。
   if (message.action === 'titleForDom') {
     return (async () => {
       try {
@@ -463,16 +461,15 @@ browser.runtime.onMessage.addListener((message) => {
     })();
   }
 
-  // The service worker asks us to release a blob URL once its download finishes
-  // (the URL was created in THIS document, so only this context can revoke it).
+  // 下载结束后 service worker 请我们释放 blob URL
+  // （URL 是在本文档创建的，只有本上下文能 revoke 它）。
   if (message.type === 'md:revokeBlob' && message.url) {
-    try { URL.revokeObjectURL(message.url); } catch (e) { /* ignore */ }
+    try { URL.revokeObjectURL(message.url); } catch (e) { /* 忽略 */ }
     return { ok: true };
   }
 
-  // Clipboard fallback (called by the service worker when the content-script
-  // world couldn't write the clipboard). Runs in this focused document where
-  // navigator.clipboard.writeText works with the clipboardWrite permission.
+  // 剪贴板兜底（内容脚本所在世界写剪贴板失败时，由 service worker 调用）。
+  // 在本聚焦文档里，配合 clipboardWrite 权限 navigator.clipboard.writeText 可用。
   if (message.action === 'clipboardWrite') {
     return (async () => {
       try {
@@ -484,20 +481,19 @@ browser.runtime.onMessage.addListener((message) => {
     })();
   }
 
-  // Build blob URLs for the .md file and any images, then hand them to the
-  // SERVICE WORKER to download. The downloads API is NOT available in this
-  // offscreen document (chrome.downloads is undefined here), but
-  // URL.createObjectURL IS — while the service worker is the exact opposite
-  // (has chrome.downloads, lacks URL.createObjectURL). So this document only
-  // manufactures the blob: URLs; chrome.downloads.download runs in the worker.
+  // 为 .md 文件与图片生成 blob URL，然后交给 SERVICE WORKER 去下载。
+  // 离屏文档里 downloads API 不可用（此处 chrome.downloads 是 undefined），
+  // 但 URL.createObjectURL 可用——而 service worker 恰好相反（有
+  // chrome.downloads、缺 URL.createObjectURL）。所以本文档只负责造 blob URL，
+  // chrome.downloads.download 在 worker 里执行。
   if (message.action === 'doDownload') {
     return (async () => {
       try {
-        // Blob for the .md file itself.
+        // .md 文件本身的 blob。
         const mdUrl = URL.createObjectURL(new Blob([message.markdown], { type: 'text/markdown;charset=utf-8' }));
 
-        // Each image entry is already a blob: URL created during preDownloadImages.
-        // Filenames stay as produced; the folder prefix is applied on the worker.
+        // 每张图片已在 preDownloadImages 阶段生成了 blob URL。
+        // 文件名保持原样；文件夹前缀在 worker 侧拼接。
         const images = message.imageList || {};
         const imageEntries = Object.entries(images).map(([src, filename]) => ({
           url: src,

@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "MarkDownload - Markdown Web Clipper (MV3)",
   "version": "3.4.0",
-  "description": "This extension works like a web clipper, but it downloads articles in markdown format. MV3 build for Chrome/Edge.",
+  "description": "像网页剪藏一样，把网页正文一键保存为 Markdown 格式。MV3 版，适用于 Chrome / Edge。",
   "author": "Gordon Pedsersen",
   "minimum_chrome_version": "116",
   "icons": {
@@ -38,27 +38,27 @@
       "suggested_key": { "default": "Alt+Shift+M" }
     },
     "download_tab_as_markdown": {
-      "description": "Save current tab as Markdown",
+      "description": "将当前网页保存为 Markdown 文件",
       "suggested_key": { "default": "Alt+Shift+D" }
     },
     "copy_tab_as_markdown": {
-      "description": "Copy current tab as Markdown to the clipboard"
+      "description": "将当前网页复制为 Markdown 到剪贴板"
     },
     "copy_selection_as_markdown": {
-      "description": "Copy current selection as Markdown to the clipboard"
+      "description": "将选中内容复制为 Markdown 到剪贴板"
     },
     "copy_tab_as_markdown_link": {
-      "description": "Copy current tab URL as Markdown link to the clipboard",
+      "description": "将当前网页地址复制为 Markdown 链接",
       "suggested_key": { "default": "Alt+Shift+L" }
     },
     "copy_selected_tab_as_markdown_link": {
-      "description": "Copy selected tabs URL as Markdown link to the clipboard"
+      "description": "将选中的标签页地址复制为 Markdown 链接列表"
     },
     "copy_selection_to_obsidian": {
-      "description": "Copy current selection as Markdown to Obsidian"
+      "description": "将选中内容以 Markdown 发送到 Obsidian"
     },
     "copy_tab_to_obsidian": {
-      "description": "Copy current tab as Markdown to Obsidian"
+      "description": "将当前网页以 Markdown 发送到 Obsidian"
     }
   },
   "web_accessible_resources": [

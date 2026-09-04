@@ -1,20 +1,20 @@
 /*
- * MarkDownload MV3 — content script.
+ * MarkDownload MV3 — 内容脚本。
  *
- * Runs in the page's isolated world (declared in the manifest; also injected on
- * demand by the service worker for tabs that predate the install). Its jobs:
- *   - respond to md:getClipData with the page/selection outerHTML + baseURI
- *   - respond to md:copy by writing text to the clipboard
+ * 运行在页面的隔离世界里（在 manifest 中声明；对于安装前就已打开的标签页，
+ * 由 service worker 按需注入）。职责：
+ *   - 响应 md:getClipData：返回页面/选中区的 outerHTML + baseURI
+ *   - 响应 md:copy：把文本写入剪贴板
  *
- * Uses raw chrome.* (MV3 promise APIs); no polyfill is loaded in this context.
- * Repeated injection is guarded via a window marker.
+ * 使用原生 chrome.*（MV3 的 Promise API）；本上下文未加载 polyfill。
+ * 通过 window 标记避免重复注入。
  */
 (function () {
   if (window.__markdownloadInjected) return;
   window.__markdownloadInjected = true;
 
   // -------------------------------------------------------------------------
-  // Scrape helpers (reused from the MV2 content script)
+  // 页面抓取辅助（沿用 MV2 内容脚本）
   // -------------------------------------------------------------------------
   function getHTMLOfDocument() {
     let baseEl = document.createElement('base');
@@ -79,7 +79,7 @@
       await navigator.clipboard.writeText(text);
       return true;
     } catch (e) {
-      // Fallback: hidden textarea + execCommand.
+      // 兜底：隐藏 textarea + execCommand。
       try {
         const ta = document.createElement('textarea');
         ta.value = text;
@@ -97,7 +97,7 @@
   }
 
   // -------------------------------------------------------------------------
-  // Message handlers
+  // 消息处理
   // -------------------------------------------------------------------------
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!message || typeof message.type !== 'string') return undefined;
@@ -115,10 +115,10 @@
     return undefined;
   });
 
-  // Inject the tiny page-context helper (used to mark MathJax source nodes).
+  // 注入一个极小的页面上下文脚本（用于给 MathJax 源码节点打标记）。
   try {
     const s = document.createElement('script');
     s.src = chrome.runtime.getURL('contentScript/pageContext.js');
     (document.head || document.documentElement).appendChild(s);
-  } catch (e) { /* ignore */ }
+  } catch (e) { /* 忽略 */ }
 })();

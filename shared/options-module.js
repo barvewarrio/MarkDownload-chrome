@@ -1,11 +1,11 @@
-// ES-module copy of default-options.js, imported by the MV3 service worker and
-// the offscreen document's conversion engine. This is the canonical default;
-// keep it in sync with shared/default-options.js (used by the options page).
+// default-options.js 的 ES-module 版本，由 MV3 service worker 与离屏文档的
+// 转换引擎引入。这是权威默认值；请与 shared/default-options.js（设置页使用）
+// 保持一致。
 export const defaultOptions = {
   headingStyle: "atx", hr: "___", bulletListMarker: "-", codeBlockStyle: "fenced",
   fence: "```", emDelimiter: "_", strongDelimiter: "**", linkStyle: "inlined",
   linkReferenceStyle: "full", imageStyle: "markdown", imageRefStyle: "inlined",
-  frontmatter: "---\ncreated: {date:YYYY-MM-DDTHH:mm:ss} (UTC {date:Z})\ntags: [{keywords}]\nsource: {baseURI}\nauthor: {byline}\n---\n\n# {pageTitle}\n\n> ## Excerpt\n> {excerpt}\n\n---",
+  frontmatter: "---\ncreated: {date:YYYY-MM-DDTHH:mm:ss} (UTC {date:Z})\ntags: [{keywords}]\nsource: {baseURI}\nauthor: {byline}\n---\n\n# {pageTitle}\n\n> ## 摘要\n> {excerpt}\n\n---",
   backmatter: "", title: "{pageTitle}", includeTemplate: false, saveAs: false,
   downloadImages: false, imagePrefix: '{pageTitle}/', mdClipsFolder: "",
   disallowedChars: '[]#^', turndownEscape: true,

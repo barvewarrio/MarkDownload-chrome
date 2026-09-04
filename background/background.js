@@ -1,22 +1,23 @@
 /*
- * MarkDownload MV3 — service worker (orchestration only).
+ * MarkDownload MV3 — service worker（只做调度）。
  *
- * The HTML→Markdown pipeline needs a real DOM, which MV3 service workers lack,
- * so all conversion AND all blob-based downloads happen in the offscreen
- * document (offscreen/offscreen.js). This worker:
- *   - keeps the offscreen document alive on demand
- *   - owns context menus, keyboard commands
- *   - talks to the page content script to grab page/selection DOM and write the
- *     clipboard (executeScript({code}) is gone in MV3)
+ * HTML→Markdown 的转换需要真实 DOM，而 MV3 的 service worker 没有 DOM，
+ * 所以转换与 blob 的制造都在离屏文档（offscreen/offscreen.js）里完成。
+ * 本 worker 负责：
+ *   - 按需保持离屏文档存活
+ *   - 持有右键菜单与快捷键
+ *   - 与页面内容脚本通信，取页面/选中区 DOM、写剪贴板（MV3 已无
+ *     executeScript({code})）
  *
- * Downloads are delegated to the offscreen document because image blobs are
- * created there and blob: URLs are only usable from the creating context.
+ * 下载走“离屏文档造 blob URL → worker 调 chrome.downloads.download”：
+ * 离屏文档里有 URL.createObjectURL 但没有 chrome.downloads；worker 恰好相反。
+ * 每个 blob 只在其创建上下文里可用，所以图片 blob 也在离屏文档生成。
  */
 
 import { getOptions } from '../shared/options-module.js';
 
 // ---------------------------------------------------------------------------
-// Offscreen document lifecycle
+// 离屏文档生命周期
 // ---------------------------------------------------------------------------
 const OFFSCREEN_URL = 'offscreen/offscreen.html';
 let offscreenCreating = null;
@@ -48,7 +49,7 @@ async function offscreen(action, payload) {
 }
 
 // ---------------------------------------------------------------------------
-// Content-script bridge
+// 内容脚本桥接
 // ---------------------------------------------------------------------------
 async function sendToTab(tabId, message) {
   try { return await chrome.tabs.sendMessage(tabId, message); }
@@ -60,7 +61,7 @@ async function getClipData(tabId, wantSelection) {
   if (!clip) {
     try {
       await chrome.scripting.executeScript({ target: { tabId }, files: ['contentScript/contentScript.js'] });
-    } catch (e) { /* restricted page */ }
+    } catch (e) { /* 受限制页面，跳过 */ }
     clip = await sendToTab(tabId, { type: 'md:getClipData', wantSelection: !!wantSelection });
   }
   return clip;
@@ -76,7 +77,7 @@ function isAddressable(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Clip pipeline
+// 剪藏流程
 // ---------------------------------------------------------------------------
 async function clipTab(tabId, selectionOnly) {
   const clip = await getClipData(tabId, selectionOnly);
@@ -90,19 +91,17 @@ async function clipTab(tabId, selectionOnly) {
 }
 
 // ---------------------------------------------------------------------------
-// Downloads.
-// The offscreen document owns the blob: URLs (it has URL.createObjectURL but
-// NOT chrome.downloads). So the flow is: ask offscreen for blob URLs, then run
-// chrome.downloads.download here in the worker, which DOES have the API.
-// Revoke each blob URL once its download reaches a terminal state, so large
-// clippings don't pin memory in the offscreen document.
+// 下载。
+// blob URL 归离屏文档所有（那里有 URL.createObjectURL，但没有 chrome.downloads）。
+// 流程：先请离屏文档生成 blob URL，再由本 worker 调 chrome.downloads.download
+// （worker 才有该 API）。下载到达终态后回收各 blob URL，避免大剪藏占用离屏文档内存。
 // ---------------------------------------------------------------------------
 async function downloadMarkdown({ markdown, title, mdClipsFolder = '', imageList = {}, saveAs }) {
   const options = await getOptions();
   const filename = (mdClipsFolder || '') + (title || 'page') + '.md';
   const res = await offscreen('doDownload', { markdown, imageList });
 
-  // The .md file.
+  // .md 文件本体。
   await chrome.downloads.download({
     url: res.mdUrl,
     filename,
@@ -110,14 +109,14 @@ async function downloadMarkdown({ markdown, title, mdClipsFolder = '', imageList
   });
   revokeBlobWhenDone(res.mdUrl);
 
-  // Images go in the same folder as the .md (folder is relative to Downloads).
+  // 图片与 .md 放同一目录（路径相对“下载”目录）。
   const slash = filename.lastIndexOf('/');
   const imgBaseDir = slash > 0 ? filename.substring(0, slash + 1) : '';
   for (const img of res.imageEntries || []) {
     try {
       await chrome.downloads.download({ url: img.url, filename: imgBaseDir + img.filename, saveAs: false });
       revokeBlobWhenDone(img.url);
-    } catch (e) { /* skip failed image */ }
+    } catch (e) { /* 跳过失败的图片 */ }
   }
 }
 
@@ -131,7 +130,7 @@ function revokeBlobWhenDone(blobUrl) {
 }
 
 // ---------------------------------------------------------------------------
-// Context menus
+// 右键菜单
 // ---------------------------------------------------------------------------
 async function createMenus() {
   const options = await getOptions();
@@ -139,11 +138,11 @@ async function createMenus() {
   if (!options.contextMenus) return;
 
   const create = (id, title, contexts, extra = {}) => {
-    try { chrome.contextMenus.create({ id, title, contexts, ...extra }); } catch (e) { /* Chrome lacks tab context etc. */ }
+    try { chrome.contextMenus.create({ id, title, contexts, ...extra }); } catch (e) { /* 某些上下文（如 tab）仅 Firefox 支持，忽略 */ }
   };
   const sep = (id, contexts) => { try { chrome.contextMenus.create({ id, type: 'separator', contexts }); } catch (e) {} };
 
-  // Tab context (Firefox-only; harmless on Chrome)
+  // tab 上下文（仅 Firefox；Chrome 上无害）
   create('download-markdown-tab', '下载标签页为 Markdown', ['tab']);
   create('tab-download-markdown-alltabs', '下载所有标签页为 Markdown', ['tab']);
   create('copy-tab-as-markdown-link-tab', '复制标签页地址为 Markdown 链接', ['tab']);
@@ -153,7 +152,7 @@ async function createMenus() {
   create('tabtoggle-includeTemplate', '包含前置/后置模板', ['tab'], { type: 'checkbox', checked: options.includeTemplate });
   create('tabtoggle-downloadImages', '下载图片', ['tab'], { type: 'checkbox', checked: options.downloadImages });
 
-  // Page / selection
+  // 页面 / 选中内容
   create('download-markdown-alltabs', '下载所有标签页为 Markdown', ['all']);
   sep('separator-0', ['all']);
   create('download-markdown-selection', '下载选中内容为 Markdown', ['selection']);
@@ -181,12 +180,12 @@ async function toggleSetting(setting) {
   const options = await getOptions();
   options[setting] = !options[setting];
   await chrome.storage.sync.set(options);
-  // Rebuild menus so checkbox states refresh.
+  // 重建菜单，让复选框状态刷新。
   await createMenus();
 }
 
 // ---------------------------------------------------------------------------
-// Actions
+// 各动作
 // ---------------------------------------------------------------------------
 async function doClip(tab, selectionOnly, mode) {
   const res = await clipTab(tab.id, selectionOnly);
@@ -243,9 +242,9 @@ async function copyToObsidian(tab, selectionOnly) {
   const folder = (await offscreen('formatObsidianFolder', { article: res.article })).folder || '';
   const file = folder + res.article.title;
   const vault = options.obsidianVault ? 'vault=' + encodeURIComponent(options.obsidianVault) + '&' : '';
-  // The Advanced URI plugin registers obsidian://adv-uri (NOT obsidian://advanced-uri).
-  // filepath may contain "/" separators, so encodeURIComponent keeps it intact;
-  // # (link-style wikilinks) must NOT be percent-encoded or the fragment truncates.
+  // Advanced URI 插件注册的是 obsidian://adv-uri（不是 obsidian://advanced-uri）。
+  // filepath 可能含 "/" 分隔符，因此用 encodeURIComponent 逐段编码保持完整；
+  // # （维基式双链）绝不能做百分号编码，否则会被当作片段截断。
   const encodedPath = file.split('/').map(encodeURIComponent).join('/');
   await chrome.tabs.update(tab.id, { url: `obsidian://adv-uri?${vault}clipboard=true&mode=new&filepath=${encodedPath}` });
 }
@@ -259,7 +258,7 @@ async function downloadAllTabs(tab) {
 }
 
 // ---------------------------------------------------------------------------
-// Context menu click handler
+// 右键菜单点击处理
 // ---------------------------------------------------------------------------
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   try {
@@ -288,7 +287,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 // ---------------------------------------------------------------------------
-// Keyboard commands
+// 快捷键
 // ---------------------------------------------------------------------------
 chrome.commands.onCommand.addListener(async (command) => {
   try {
@@ -310,10 +309,10 @@ chrome.commands.onCommand.addListener(async (command) => {
 });
 
 // ---------------------------------------------------------------------------
-// Runtime messages (popup / content / options)
+// 运行时消息（弹窗 / 内容脚本 / 设置页）
 // ---------------------------------------------------------------------------
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Content script (driven by popup) → worker: run the full clip.
+  // 内容脚本（由弹窗驱动）→ worker：跑完整剪藏。
   if (message && message.type === 'md:clip') {
     offscreen('clip', {
       dom: message.dom,
@@ -324,13 +323,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // async
   }
 
-  // Popup → worker: download after the user reviews/edits the markdown.
+  // 弹窗 → worker：用户在弹窗里预览/编辑 markdown 后请求下载。
   if (message && message.type === 'md:download') {
     downloadMarkdown(message).catch((err) => console.error('download failed', err));
     return false;
   }
 
-  // Options page → worker: rebuild context menus after import / toggles.
+  // 设置页 → worker：导入/切换后重建右键菜单。
   if (message && message.type === 'md:rebuildMenus') {
     createMenus().then(() => sendResponse({ ok: true })).catch((e) => sendResponse({ ok: false, error: e.message }));
     return true;
@@ -340,7 +339,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // ---------------------------------------------------------------------------
-// Boot
+// 启动
 // ---------------------------------------------------------------------------
 chrome.runtime.onInstalled.addListener(() => { createMenus().catch(console.error); });
 chrome.runtime.onStartup.addListener(() => { createMenus().catch(console.error); });

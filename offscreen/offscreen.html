@@ -4,10 +4,9 @@
     <meta charset="utf-8">
   </head>
   <body>
-    <!-- Offscreen document: provides a DOM environment (DOMParser, document)
-         for the Readability + Turndown conversion engine. MV3 service workers
-         have no DOM, so the DOM-heavy conversion logic lives here and is
-         driven over runtime messages from the service worker. -->
+    <!-- 离屏文档：为 Readability + Turndown 转换引擎提供 DOM 环境（DOMParser、document）。
+         MV3 的 service worker 没有 DOM，因此依赖 DOM 的转换逻辑放在这里，
+         由 service worker 通过运行时消息驱动。 -->
     <script src="../browser-polyfill.min.js"></script>
     <script src="lib/apache-mime-types.js"></script>
     <script src="lib/moment.min.js"></script>

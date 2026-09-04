@@ -1,14 +1,13 @@
 /*
- * MarkDownload MV3 — popup.
+ * MarkDownload MV3 — 工具栏弹窗。
  *
- * MV2 scraped the page via browser.tabs.executeScript(code) and messaged the
- * background. MV3 dropped executeScript({code}), so the popup asks the content
- * script for { dom, selection } (md:getClipData) and tells the service worker
- * to run the clip (md:clip → offscreen engine), which replies with rendered
- * markdown for display here.
+ * MV2 用 browser.tabs.executeScript(code) 抓取页面并通知后台；MV3 移除了
+ * executeScript({code})，所以这里改为向内容脚本要 { dom, selection }
+ * (md:getClipData)，再让 service worker 跑完整剪藏（md:clip → offscreen 引擎），
+ * 引擎把渲染好的 markdown 回传到这里展示。
  *
- * Uses raw chrome.* (promise-based in MV3). Context-menu checkbox states are
- * owned by the worker, so toggles here ask it to rebuild via md:rebuildMenus.
+ * 使用原生 chrome.*（MV3 下为 Promise）。右键菜单的勾选状态由 worker 持有，
+ * 因此这里的开关通过 md:rebuildMenus 请它重建菜单。
  */
 
 let imageList = null;
@@ -75,7 +74,7 @@ async function getClipFromTab(tabId) {
   try {
     clip = await chrome.tabs.sendMessage(tabId, { type: 'md:getClipData', wantSelection: true });
   } catch (e) { clip = null; }
-  // Content script absent (tab predates install) → inject and retry.
+  // 内容脚本缺失（安装前就已打开的标签页）→ 注入后重试。
   if (!clip) {
     try {
       await chrome.scripting.executeScript({ target: { tabId }, files: ['contentScript/contentScript.js'] });
@@ -87,11 +86,11 @@ async function getClipFromTab(tabId) {
 
 async function clipSite() {
   const tab = await getActiveTab();
-  if (!tab || tab.id == null) return showError('No active tab');
+  if (!tab || tab.id == null) return showError('没有找到活动标签页');
   const options = await chrome.storage.sync.get(defaultOptions);
 
   const clip = await getClipFromTab(tab.id);
-  if (!clip) return showError('Cannot access this page.');
+  if (!clip) return showError('无法访问此页面（受限制页面或暂不支持）。');
 
   showOrHideClipOption(clip.selection);
   let res;
@@ -105,7 +104,7 @@ async function clipSite() {
   } catch (err) {
     return showError(err && err.message || err);
   }
-  if (!res || res.ok === false) return showError((res && res.error) || 'Clip failed');
+  if (!res || res.ok === false) return showError((res && res.error) || '剪藏失败');
 
   cm.setValue(res.markdown);
   document.getElementById('title').value = res.article.title;
@@ -117,7 +116,7 @@ async function clipSite() {
   cm.refresh();
 }
 
-// Download is executed by the service worker → offscreen (Downloads API + blobs).
+// 下载由 service worker → offscreen 执行（Downloads API + blob）。
 function sendDownloadMessage(text) {
   if (!text) return Promise.resolve();
   return chrome.runtime.sendMessage({
@@ -145,11 +144,11 @@ async function downloadSelection(e) {
 function showError(err) {
   document.getElementById('container').style.display = 'flex';
   document.getElementById('spinner').style.display = 'none';
-  cm.setValue('Error clipping the page\n\n' + err);
+  cm.setValue('剪藏出错\n\n' + err);
   console.error(err);
 }
 
-// boot: read settings, wire toggles, then clip the active tab
+// 启动：读取设置、绑定开关，然后剪藏当前活动标签页
 chrome.storage.sync.get(defaultOptions).then((options) => {
   checkInitialSettings(options);
   document.getElementById('selected').addEventListener('click', (e) => { e.preventDefault(); toggleClipSelection(options); });
