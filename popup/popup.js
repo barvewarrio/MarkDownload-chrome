@@ -25,9 +25,6 @@ cm.on('cursorActivity', () => {
   document.getElementById('downloadSelection').style.display = somethingSelected ? 'block' : 'none';
 });
 
-document.getElementById('download').addEventListener('click', download);
-document.getElementById('downloadSelection').addEventListener('click', downloadSelection);
-
 const defaultOptions = { includeTemplate: false, clipSelection: true, downloadImages: false };
 
 function checkInitialSettings(options) {
@@ -148,6 +145,70 @@ function showError(err) {
   console.error(err);
 }
 
+// 在弹窗状态区显示一行提示（不打断编辑）
+function showToast(msg, isError) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.toggle('error', !!isError);
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 3000);
+}
+
+// ⚙️ 设置：打开右侧 Side Panel（需在弹窗手势内直接调用，勿经 SW 转发以免丢手势）
+async function openSettingsPanel() {
+  try {
+    if (!chrome.sidePanel || !chrome.sidePanel.open) {
+      // 极旧/异常环境兜底：退化为新标签页打开设置
+      chrome.tabs.create({ url: 'options/options.html' });
+      return;
+    }
+    const win = await chrome.windows.getCurrent();
+    await chrome.sidePanel.open({ windowId: win.id });
+  } catch (e) {
+    console.error('open settings panel failed', e);
+    showToast('打开设置面板失败', true);
+  }
+}
+
+// ✨ AI 优化：对编辑器当前文本按设置调用 DeepSeek 整理，回填。
+// 设置与 API Key 都在 worker / 离屏侧读取（Key 仅存本机 storage.local），
+// 这里只做快速前置校验给出友好提示，再发消息让离屏文档实际加工。
+async function polishWithAI() {
+  const text = cm.getValue();
+  if (!text || !text.trim()) return;
+  try {
+    const settings = await chrome.storage.sync.get({
+      aiEnabled: false, aiClean: true, aiTags: false, aiSummary: false, aiTranslate: false, aiTargetLang: '',
+    });
+    if (!settings.aiEnabled || !(settings.aiClean || settings.aiTags || settings.aiSummary || settings.aiTranslate)) {
+      showToast('AI 优化未开启，请先到 ⚙️ 设置中开启并配置', true);
+      return;
+    }
+    const { deepseekKey } = await chrome.storage.local.get({ deepseekKey: '' });
+    if (!deepseekKey) {
+      showToast('请先在 ⚙️ 设置中填写 DeepSeek API Key', true);
+      return;
+    }
+    showToast('AI 优化中…');
+    const res = await chrome.runtime.sendMessage({ type: 'md:aiPolish', markdown: text });
+    if (res && res.ok && res.markdown) {
+      if (res.applied === false) {
+        showToast('未做改动（未开启相关 AI 选项）', true);
+        return;
+      }
+      cm.setValue(res.markdown);
+      showToast('AI 优化完成 ✨');
+    } else {
+      showToast((res && res.error) || 'AI 优化失败，已保留原文', true);
+    }
+  } catch (err) {
+    console.error('aiPolish failed', err);
+    showToast('AI 优化失败，已保留原文', true);
+  }
+}
+
 // 启动：读取设置、绑定开关，然后剪藏当前活动标签页
 chrome.storage.sync.get(defaultOptions).then((options) => {
   checkInitialSettings(options);
@@ -155,5 +216,9 @@ chrome.storage.sync.get(defaultOptions).then((options) => {
   document.getElementById('document').addEventListener('click', (e) => { e.preventDefault(); toggleClipSelection(options); });
   document.getElementById('includeTemplate').addEventListener('click', (e) => { e.preventDefault(); toggleIncludeTemplate(options); });
   document.getElementById('downloadImages').addEventListener('click', (e) => { e.preventDefault(); toggleDownloadImages(options); });
+  document.getElementById('download').addEventListener('click', download);
+  document.getElementById('downloadSelection').addEventListener('click', downloadSelection);
+  document.getElementById('aiPolish').addEventListener('click', (e) => { e.preventDefault(); polishWithAI(); });
+  document.getElementById('openSettings').addEventListener('click', (e) => { e.preventDefault(); openSettingsPanel(); });
   return clipSite();
 }).catch((err) => showError(err));

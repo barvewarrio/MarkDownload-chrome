@@ -1,425 +1,404 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <title>MarkDownload 设置</title>
     <link rel="stylesheet" type="text/css" href="options.css" media="screen">
 </head>
-
 <body>
-    <h1>MarkDownload 设置</h1>
-    <p class="page-note">对某个选项点一下即自动保存；所有设置会自动同步到你登录的 Chrome 账号。带 <strong>“变量”</strong> 的输入框支持下面的替换语法，可自动插入文章信息。</p>
+    <!-- 右侧面板布局：顶部标签页切换，Linear 风 -->
+    <header class="panel-head">
+        <div class="brand">MarkDownload</div>
+        <nav class="tabs" id="tabs">
+            <button class="tab active" data-tab="general">基础</button>
+            <button class="tab" data-tab="media">图片</button>
+            <button class="tab" data-tab="format">格式</button>
+            <button class="tab" data-tab="ai">AI 优化</button>
+        </nav>
+    </header>
 
-    <hr>
+    <main class="panel-body">
 
-    <!-- ============================== 文件保存位置 ============================== -->
-    <h2>📁 保存位置</h2>
+        <!-- ════════════ 基础 ════════════ -->
+        <section class="tab-pane active" id="pane-general">
 
-    <div class="notice">
-        受浏览器安全限制，扩展只能<strong>静默保存</strong>到系统「下载」目录（~/Downloads）内的子文件夹，
-        不能直接写入任意磁盘路径。两种选择：
-        <ul style="margin:4px 0 0 0;">
-            <li>① 在下方<strong>一键选定</strong>一个「下载」内的子文件夹，以后每次都存到那里（无需再选）；</li>
-            <li>② 勾选「下载前询问位置」，每次用系统“另存为”对话框选任意目录（会记住上次的位置）。</li>
-        </ul>
-    </div>
+            <div class="group">
+                <div class="group-title">📁 保存位置</div>
+                <div class="note">受浏览器限制，扩展只能保存到系统「下载」目录内的子文件夹。
+                    勾选「另存为」则每次用系统对话框存任意位置。</div>
 
-    <div id="folderPresets">
-        <div class="preset-label">保存到「下载」目录的哪个文件夹？（点卡片即选定并自动保存）</div>
-        <div class="preset-grid">
-            <label class="preset-card">
-                <input type="radio" name="folderPreset" value="" />
-                <span class="preset-ico">📂</span>
-                <span class="preset-name">下载根目录</span>
-                <span class="preset-desc">~/Downloads/文章.md</span>
-            </label>
-            <label class="preset-card">
-                <input type="radio" name="folderPreset" value="{pageTitle}/" />
-                <span class="preset-ico">🗂️</span>
-                <span class="preset-name">每篇一个文件夹</span>
-                <span class="preset-desc">~/Downloads/《标题》/文章.md</span>
-            </label>
-            <label class="preset-card">
-                <input type="radio" name="folderPreset" value="{hostname}/" />
-                <span class="preset-ico">🌐</span>
-                <span class="preset-name">每站一个文件夹</span>
-                <span class="preset-desc">~/Downloads/网站名/文章.md</span>
-            </label>
-            <label class="preset-card">
-                <input type="radio" name="folderPreset" value="{date:YYYY}/{date:MM}/" />
-                <span class="preset-ico">🗓️</span>
-                <span class="preset-name">按日期归档</span>
-                <span class="preset-desc">~/Downloads/2026/09/文章.md</span>
-            </label>
-            <label class="preset-card">
-                <input type="radio" name="folderPreset" value="custom" />
-                <span class="preset-ico">✍️</span>
-                <span class="preset-name">自定义…</span>
-                <span class="preset-desc">自己填一个子目录（可用变量）</span>
-            </label>
-        </div>
-        <div id="folderPreview" class="hint"></div>
-    </div>
+                <div class="preset-label">保存到「下载」的子文件夹？</div>
+                <div class="preset-grid">
+                    <label class="preset-card">
+                        <input type="radio" name="folderPreset" value="" />
+                        <span class="preset-ico">📂</span><span class="preset-name">下载根目录</span>
+                        <span class="preset-desc">~/Downloads/文章.md</span>
+                    </label>
+                    <label class="preset-card">
+                        <input type="radio" name="folderPreset" value="{pageTitle}/" />
+                        <span class="preset-ico">🗂️</span><span class="preset-name">每篇一个文件夹</span>
+                        <span class="preset-desc">~/Downloads/《标题》/文章.md</span>
+                    </label>
+                    <label class="preset-card">
+                        <input type="radio" name="folderPreset" value="{hostname}/" />
+                        <span class="preset-ico">🌐</span><span class="preset-name">每站一个文件夹</span>
+                        <span class="preset-desc">~/Downloads/网站名/文章.md</span>
+                    </label>
+                    <label class="preset-card">
+                        <input type="radio" name="folderPreset" value="{date:YYYY}/{date:MM}/" />
+                        <span class="preset-ico">🗓️</span><span class="preset-name">按日期归档</span>
+                        <span class="preset-desc">~/Downloads/2026/09/文章.md</span>
+                    </label>
+                    <label class="preset-card">
+                        <input type="radio" name="folderPreset" value="custom" />
+                        <span class="preset-ico">✍️</span><span class="preset-name">自定义…</span>
+                        <span class="preset-desc">自己填一个子目录</span>
+                    </label>
+                </div>
+                <div id="folderPreview" class="hint"></div>
 
-    <div class="textbox-container" id="customFolderWrap">
-        <label for="mdClipsFolderInput">自定义子目录（相对“下载”，可含变量，如 <code>{hostname}/Clippings</code>）</label>
-        <div class="folder-row">
-            <span class="dlprefix">~/Downloads/</span>
-            <input type="text" id="mdClipsFolderInput" name="mdClipsFolder" role="textbox"
-                placeholder="例如：clips 或 {hostname}/Clippings" />
-        </div>
-    </div>
+                <div id="customFolderWrap" class="field hidden">
+                    <label for="mdClipsFolderInput">自定义子目录（可含变量，如 <code>{hostname}/Clippings</code>）</label>
+                    <div class="row-inline">
+                        <span class="prefix">~/Downloads/</span>
+                        <input type="text" id="mdClipsFolderInput" name="mdClipsFolder" role="textbox"
+                            placeholder="clips 或 {hostname}/Clippings" />
+                    </div>
+                </div>
 
-    <div class="checkbox-container">
-        <input name="saveAs" id="saveAs" type="checkbox" />
-        <label for="saveAs">下载前询问保存位置（存到任意目录）
-            <small class="hint">勾选后每次下载 .md 都会弹出系统“另存为”对话框，可保存到“下载”目录以外的任意位置，
-                且系统会记住你上次选的文件夹。与上面的子文件夹同时勾选时，以“另存为”为准。</small>
-        </label>
-    </div>
-
-    <hr>
-
-    <!-- ============================== 标题与模板 ============================== -->
-    <h2>🏷️ 标题与模板</h2>
-
-    <div class="checkbox-container">
-        <input name="includeTemplate" id="includeTemplate" type="checkbox" />
-        <label for="includeTemplate">在正文前/后插入模板（front/back matter）
-            <small class="hint">用于自动加入来源、日期、标签等元信息，适合导入 Obsidian 等笔记工具。开启后在下方编辑模板。</small>
-        </label>
-    </div>
-
-    <div class="textbox-container">
-        <label for="title">标题 / 文件名模板</label>
-        <small class="hint">决定下载文件的名称（不含路径，非法字符会被自动去掉）。默认 <code>{pageTitle}</code> 用网页标题。
-            建议改成 <code>{date:YYYY-MM-DD} - {pageTitle}</code> 以便排序，或 <code>{title}</code> 用正文提取的文章标题。</small>
-        <input type="text" id="title" name="title" role="textbox" />
-    </div>
-
-    <details>
-        <summary><h2>🧩 变量参考（用于标题 / 模板 / 文件夹）</h2></summary>
-        <div class="instructions">
-            <h3>文本变量</h3>
-            <p class="hint">标题、front/back matter、文件夹、图片前缀中都能用。并非每个网页都提供全部字段。</p>
-            <ul>
-                <li><code>{title}</code> — 文章标题（由正文内容提炼）</li>
-                <li><code>{pageTitle}</code> — 网页 &lt;title&gt; 标题</li>
-                <li><code>{length}</code> — 文章字数</li>
-                <li><code>{excerpt}</code> — 文章摘要/导语</li>
-                <li><code>{byline}</code> — 作者信息</li>
-                <li><code>{dir}</code> — 文字方向</li>
-                <li><code>{keywords}</code> — 网页关键词（如有，默认逗号分隔）</li>
-                <li><code>{keywords:SEP}</code> — 用 SEP 分隔关键词，如 <code>{keywords: }</code> 用空格</li>
-                <li><code>{date:FORMAT}</code> — 当前时间，FORMAT 用
-                    <a href="https://momentjs.com/docs/#/displaying/format/" target="_blank" rel="noopener noreferrer">Moment 格式</a>，
-                    如 <code>{date:YYYY-MM-DD}</code>。</li>
-            </ul>
-            <h3>网页链接变量（文章的 URL）</h3>
-            <ul>
-                <li><code>{baseURI}</code> — 文章完整地址</li>
-                <li><code>{origin}</code> — 协议+域名+端口</li>
-                <li><code>{host}</code> — 域名(:端口)</li>
-                <li><code>{hostname}</code> — 纯域名（最常用于按站分文件夹）</li>
-                <li><code>{port}</code> — 端口</li>
-                <li><code>{protocol}</code> — 协议，如 <code>https:</code></li>
-                <li><code>{pathname}</code> — 路径部分（不含查询串/锚点）</li>
-                <li><code>{search}</code> — 查询串（含 ?）</li>
-                <li><code>{hash}</code> — 锚点（含 #）</li>
-                <li>任何 meta 标签也可用，如 <code>{og:image}</code></li>
-            </ul>
-            <h3>大小写变换（不能用于 date / keywords）</h3>
-            <ul>
-                <li><code>{var:pascal}</code> — PascalCase（每个单词首字母大写）</li>
-                <li><code>{var:camel}</code> — camelCase（除首个单词外首字母大写）</li>
-                <li><code>{var:kebab}</code> — kebab-case（小写、短横线连接）</li>
-                <li><code>{var:snake}</code> — snake_case（小写、下划线连接）</li>
-            </ul>
-        </div>
-    </details>
-
-    <div class="textbox-container">
-        <label for="frontmatter">正文前插入的模板（Front-matter）</label>
-        <small class="hint">显示在输出文件最上方。默认带 <code>---</code> YAML 风格头，含创建时间、标签、来源链接、作者、摘要等。</small>
-        <div class="input-sizer"><textarea name="frontmatter" id="frontmatter" class="textarea" role="textbox" spellcheck="false"></textarea></div>
-    </div>
-
-    <div class="textbox-container">
-        <label for="backmatter">正文后插入的模板（Back-matter）</label>
-        <small class="hint">显示在输出文件最末尾，常用于加版权声明、链接等。留空则不追加。</small>
-        <div class="input-sizer"><textarea name="backmatter" id="backmatter" class="textarea" role="textbox" spellcheck="false"></textarea></div>
-    </div>
-
-    <div class="textbox-container">
-        <label for="disallowedChars">文件名额外过滤的字符（默认 <code>[]#^</code>）</label>
-        <small class="hint">标题转文件名时会去掉这些字符。系统本身已强制去掉 <code>/\?&lt;&gt;\:*|"</code>，
-            这里再加一层你自己的过滤。一般保持默认即可。</small>
-        <input type="text" id="disallowedChars" name="disallowedChars" role="textbox" />
-    </div>
-
-    <hr>
-
-    <!-- ============================== 图片 ============================== -->
-    <h2>🖼️ 图片</h2>
-
-    <div class="checkbox-container">
-        <input name="downloadImages" id="downloadImages" type="checkbox" />
-        <label for="downloadImages">把网页图片一并下载到本地
-            <small class="hint">Markdown 引用本地图片而非网页原图，避免原图失效/防盗链。下面两个选项仅在开启本项时生效。</small>
-        </label>
-    </div>
-
-    <div class="textbox-container">
-        <label for="imagePrefix">图片保存目录前缀（支持变量）</label>
-        <small class="hint">图片相对正文 .md 文件所在目录存放的子目录。默认 <code>{pageTitle}/</code> 表示每个网页的图片放在
-            “以标题命名的子目录”里；改成 <code>images/</code> 则统一放 <code>images</code> 子目录。</small>
-        <input type="text" name="imagePrefix" id="imagePrefix" role="textbox" />
-    </div>
-
-    <div class="radio-container" id="imageOptions">
-        <h3>正文里图片的引用方式</h3>
-        <small class="hint">决定图片以何种 Markdown 语法写进文件。</small>
-        <input type="radio" name="imageStyle" id="originalSource" value="originalSource" />
-        <label for="originalSource"><strong>原图地址</strong>
-            <pre>![](http://example.com/img/a.jpg)</pre>
-            <small class="hint">不下载图片，正文直接引用网页原图 URL。</small>
-        </label>
-        <input type="radio" name="imageStyle" id="noImage" value="noImage" />
-        <label for="noImage"><strong>删除图片</strong>
-            <pre>（正文中不保留任何图片）</pre>
-            <small class="hint">完全去掉图片。</small>
-        </label>
-        <input type="radio" name="imageStyle" id="markdown" value="markdown" />
-        <label for="markdown"><strong>本地引用</strong>
-            <pre>![](子目录/image.jpg)</pre>
-            <small class="hint">需勾选“下载图片”。图片存到本地并相对引用，最通用。</small>
-        </label>
-        <input type="radio" name="imageStyle" id="base64" value="base64" />
-        <label for="base64"><strong>Base64 内嵌</strong>
-            <pre>![](data:image/png;base64,……)</pre>
-            <small class="hint">图片直接编进 .md 文件，无需额外文件但文件体积变大；适合单文件分发。</small>
-        </label>
-        <input type="radio" name="imageStyle" id="obsidian" value="obsidian" />
-        <label for="obsidian"><strong>Obsidian 内嵌</strong>
-            <pre>![[子目录/image.jpg]]</pre>
-            <small class="hint">供 Obsidian 图床/库使用，需勾选“下载图片”。</small>
-        </label>
-        <input type="radio" name="imageStyle" id="obsidian-nofolder" value="obsidian-nofolder" />
-        <label for="obsidian-nofolder"><strong>Obsidian 内嵌（不带文件夹）</strong>
-            <pre>![[image.jpg]]</pre>
-            <small class="hint">同上，但路径省略文件夹前缀。</small>
-        </label>
-    </div>
-
-    <div class="radio-container" id="imageRefOptions">
-        <h3>本地图片引用语法（仅当图片样式为“本地引用”时）</h3>
-        <input type="radio" name="imageRefStyle" id="img-inlined" value="inlined" />
-        <label for="img-inlined"><strong>内联式</strong>
-            <pre>![](address/of/image.jpg)</pre>
-        </label>
-        <input type="radio" name="imageRefStyle" id="img-referenced" value="referenced" />
-        <label for="img-referenced"><strong>引用式</strong>
-            <pre>![][fig1]
-
-[fig1]: address/of/image.jpg</pre>
-        </label>
-    </div>
-
-    <hr>
-
-    <!-- ============================== Markdown 格式 ============================== -->
-    <h2>⚙️ Markdown 输出格式</h2>
-    <p class="hint">下面的选项决定 HTML 转 Markdown 的排版风格。想更深入了解可参考 Turndown 项目的文档。</p>
-
-    <div class="radio-container" id="headingStyle">
-        <h3>标题样式</h3>
-        <input type="radio" name="headingStyle" id="setext" value="setext" />
-        <label for="setext"><span>Setext 式（下划线）</span>
-            <pre>All About Dogs
-==============</pre>
-        </label>
-        <input type="radio" name="headingStyle" id="atx" value="atx" />
-        <label for="atx"><span>ATX 式（# 井号）</span>
-            <pre># All About Dogs</pre>
-        </label>
-    </div>
-
-    <div class="radio-container" id="hr">
-        <h3>分隔线样式</h3>
-        <input type="radio" name="hr" id="***" value="***" />
-        <label for="***"><code>***</code></label>
-        <input type="radio" name="hr" id="---" value="---" />
-        <label for="---"><code>---</code></label>
-        <input type="radio" name="hr" id="___" value="___" />
-        <label for="___"><code>___</code></label>
-    </div>
-
-    <div class="radio-container" id="bulletListMarker">
-        <h3>无序列表符号</h3>
-        <input type="radio" name="bulletListMarker" id="b*" value="*" />
-        <label for="b*"><code>*</code></label>
-        <input type="radio" name="bulletListMarker" id="b-" value="-" />
-        <label for="b-"><code>-</code></label>
-        <input type="radio" name="bulletListMarker" id="b+" value="+" />
-        <label for="b+"><code>+</code></label>
-    </div>
-
-    <div class="radio-container" id="codeBlockStyle">
-        <h3>代码块样式</h3>
-        <input type="radio" name="codeBlockStyle" id="indented" value="indented" />
-        <label for="indented">缩进式
-            <pre>····const helloWorld = () =&gt; {
-········console.log("Hello World");
-····}</pre>
-        </label>
-        <input type="radio" name="codeBlockStyle" id="fenced" value="fenced" />
-        <label for="fenced">围栏式
-            <pre>```
-const helloWorld = () =&gt; {
-····console.log("Hello World");
-}
-```</pre>
-        </label>
-    </div>
-
-    <div class="radio-container" id="fence">
-        <h3>代码块围栏符号</h3>
-        <input type="radio" name="fence" id="f```" value="```" />
-        <label for="f```"><code>```</code></label>
-        <input type="radio" name="fence" id="f~~~" value="~~~" />
-        <label for="f~~~"><code>~~~</code></label>
-    </div>
-
-    <div class="radio-container" id="emDelimiter">
-        <h3>斜体符号</h3>
-        <input type="radio" name="emDelimiter" id="em_" value="_" />
-        <label for="em_"><code>_斜体_</code></label>
-        <input type="radio" name="emDelimiter" id="em*" value="*" />
-        <label for="em*"><code>*斜体*</code></label>
-        <input type="radio" name="emDelimiter" id="em__" value="__" />
-        <label for="em__"><code>__斜体__</code>（Roam 专用，非标准）</label>
-    </div>
-
-    <div class="radio-container" id="strongDelimiter">
-        <h3>粗体符号</h3>
-        <input type="radio" name="strongDelimiter" id="s**" value="**" />
-        <label for="s**"><code>**粗体**</code></label>
-        <input type="radio" name="strongDelimiter" id="s__" value="__" />
-        <label for="s__"><code>__粗体__</code></label>
-    </div>
-
-    <div class="radio-container" id="linkStyle">
-        <h3>链接写法</h3>
-        <input type="radio" name="linkStyle" id="inlined" value="inlined" />
-        <label for="inlined">内联式
-            <pre>[Google](http://google.com)</pre>
-        </label>
-        <input type="radio" name="linkStyle" id="referenced" value="referenced" />
-        <label for="referenced">引用式
-            <pre>[Google]
-
-[Google]: http://google.com</pre>
-        </label>
-        <input type="radio" name="linkStyle" id="stripLinks" value="stripLinks" />
-        <label for="stripLinks">去掉链接
-            <pre>Google</pre>
-        </label>
-    </div>
-
-    <div class="radio-container" id="linkReferenceStyle">
-        <h3>链接引用编号样式（仅当链接为“引用式”）</h3>
-        <input type="radio" name="linkReferenceStyle" id="full" value="full" />
-        <label for="full">完整编号
-            <pre>[Google][1]
-
-[1]: http://google.com</pre>
-        </label>
-        <input type="radio" name="linkReferenceStyle" id="collapsed" value="collapsed" />
-        <label for="collapsed">折叠式
-            <pre>[Google][]
-
-[Google]: http://google.com</pre>
-        </label>
-        <input type="radio" name="linkReferenceStyle" id="shortcut" value="shortcut" />
-        <label for="shortcut">快捷式
-            <pre>[Google]
-
-[Google]: http://google.com</pre>
-        </label>
-    </div>
-
-    <div class="checkbox-container" id="turndownEscape-container">
-        <input name="turndownEscape" id="turndownEscape" type="checkbox" />
-        <label for="turndownEscape">转义 Markdown 特殊字符
-            <small class="hint">默认用反斜杠转义正文中会被误读为 Markdown 的符号。例如 <code>&lt;h1&gt;1. Hello&lt;/h1&gt;</code>
-                需转义成 <code>1\. Hello</code>，否则会变成列表项。建议保持开启。</small>
-        </label>
-    </div>
-
-    <hr>
-
-    <!-- ============================== 右键菜单 / 集成 ============================== -->
-    <h2>🖱️ 右键菜单与集成</h2>
-
-    <div class="checkbox-container" id="contextMenus-container">
-        <input name="contextMenus" id="contextMenus" type="checkbox" />
-        <label for="contextMenus">启用右键菜单
-            <small class="hint">在网页上右键可直接“把当前页/选中内容存为 Markdown、复制为 Markdown 链接、复制选中文本”等。关闭后这些菜单项消失，但仍可用工具栏按钮和快捷键。</small>
-        </label>
-    </div>
-
-    <details open>
-        <summary><h2>🔗 Obsidian 集成</h2></summary>
-        <div class="instructions">
-            <div class="notice">
-                要把剪藏内容直接发进 Obsidian，需要先<strong>在 Obsidian 里装一个社区插件：Advanced URI</strong>。
-                没装的话右键“发送到 Obsidian”会没反应。安装：
-                <ol style="margin:4px 0 0 0;">
-                    <li>打开 Obsidian → 设置（左下角齿轮）→ <strong>第三方插件</strong> → 关闭「安全模式」</li>
-                    <li>点 <strong>浏览</strong>，搜索 <code>Advanced URI</code> → 安装 → 启用</li>
-                    <li>回到本页勾选下面“启用 Obsidian 集成”</li>
-                </ol>
-                插件文档：<a href="https://vinzent03.github.io/obsidian-advanced-uri/" target="_blank" rel="noopener noreferrer">Obsidian Advanced URI</a>
+                <div class="field">
+                    <label class="check">
+                        <input name="saveAs" id="saveAs" type="checkbox" />
+                        <span>下载前询问保存位置（可存任意目录）</span>
+                    </label>
+                    <div class="hint">每次下载 .md 都弹出系统“另存为”。与上面子文件夹同开时以“另存为”为准。</div>
+                </div>
             </div>
 
-            <div class="checkbox-container" id="obsidian-container">
-                <input name="obsidianIntegration" id="obsidianIntegration" type="checkbox" />
-                <label for="obsidianIntegration">启用 Obsidian 集成
-                    <small class="hint">开启后右键菜单会出现“把当前页 / 选中内容发送到 Obsidian”，并支持快捷键。</small>
-                </label>
-            </div>
-            <div class="textbox-container" id="obsidianVault">
-                <label for="obsidianVault">Obsidian 仓库名（Vault Name）</label>
-                <small class="hint">要写入的 Obsidian 库名称（库文件夹名）。留空则不指定 vault，Obsidian 会自动选择当前打开的库。
-                    检测到你本机的库名是 <code>OBSIdian</code>，一般照抄即可。</small>
-                <input type="text" name="obsidianVault" role="textbox" placeholder="OBSIdian" />
-            </div>
-            <div class="textbox-container" id="obsidianFolder">
-                <label for="obsidianFolder">Obsidian 内的目标文件夹</label>
-                <small class="hint">剪藏文件存放的库内文件夹（不存在会自动创建）。默认 <code>剪藏/</code>；想换位置直接改这里，如 <code>Clippers/</code>。</small>
-                <input type="text" name="obsidianFolder" role="textbox" placeholder="剪藏/" />
-            </div>
-        </div>
-    </details>
+            <div class="group">
+                <div class="group-title">🏷️ 标题与模板</div>
 
-    <hr>
+                <div class="field">
+                    <label class="check">
+                        <input name="includeTemplate" id="includeTemplate" type="checkbox" />
+                        <span>在正文前/后插入模板（front/back matter）</span>
+                    </label>
+                    <div class="hint">自动加入来源、日期、标签等元信息，适合导入 Obsidian。</div>
+                </div>
 
-    <!-- ============================== 导入 / 导出 ============================== -->
-    <h2>💾 导入 / 导出</h2>
-    <div class="button-container">
-        <label for="export">把当前所有设置导出为 JSON 备份文件</label><br />
-        <div class="input-sizer"><button name="export" id="export">导出设置…</button></div>
-        <label for="import">从之前导出的 JSON 备份恢复设置</label><br />
-        <div class="input-sizer"><button name="import" id="import">选择备份文件…<input type="file" name="import-file" id="import-file" /></button></div>
-    </div>
+                <div class="field">
+                    <label for="title">标题 / 文件名模板</label>
+                    <input type="text" id="title" name="title" role="textbox" />
+                    <div class="hint">默认 <code>{pageTitle}</code>；建议 <code>{date:YYYY-MM-DD} - {pageTitle}</code> 便于排序。</div>
+                </div>
 
-    <div id="spinner" style="display: none;"></div>
+                <details class="vars">
+                    <summary>🧩 变量参考</summary>
+                    <div class="vars-body">
+                        <p class="hint">标题、模板、文件夹、图片前缀都能用。并非每页都提供全部字段。</p>
+                        <ul class="kv">
+                            <li><code>{title}</code> — 文章标题（正文提炼）</li>
+                            <li><code>{pageTitle}</code> — 网页 &lt;title&gt;</li>
+                            <li><code>{length}</code> — 字数 · <code>{excerpt}</code> — 摘要 · <code>{byline}</code> — 作者</li>
+                            <li><code>{dir}</code> — 文字方向 · <code>{keywords}</code> / <code>{keywords:SEP}</code> — 关键词</li>
+                            <li><code>{date:FORMAT}</code> — 时间（<a href="https://momentjs.com/docs/#/displaying/format/" target="_blank" rel="noopener noreferrer">Moment 格式</a>）</li>
+                        </ul>
+                        <p class="hint bold">网页链接变量</p>
+                        <ul class="kv">
+                            <li><code>{baseURI}</code> 完整地址 · <code>{origin}</code> 协议+域名+端口</li>
+                            <li><code>{host}</code> / <code>{hostname}</code> 域名 · <code>{port}</code> 端口 · <code>{protocol}</code> 协议</li>
+                            <li><code>{pathname}</code> 路径 · <code>{search}</code> 查询串 · <code>{hash}</code> 锚点</li>
+                            <li>任意 meta 亦可，如 <code>{og:image}</code></li>
+                        </ul>
+                        <p class="hint bold">大小写（date/keywords 除外）</p>
+                        <ul class="kv">
+                            <li><code>{var:pascal}</code> / <code>{var:camel}</code> / <code>{var:kebab}</code> / <code>{var:snake}</code></li>
+                        </ul>
+                    </div>
+                </details>
+
+                <div class="field">
+                    <label for="frontmatter">正文前模板（Front-matter）</label>
+                    <textarea name="frontmatter" id="frontmatter" class="textarea" role="textbox" spellcheck="false"></textarea>
+                </div>
+                <div class="field">
+                    <label for="backmatter">正文后模板（Back-matter）</label>
+                    <textarea name="backmatter" id="backmatter" class="textarea" role="textbox" spellcheck="false"></textarea>
+                </div>
+                <div class="field">
+                    <label for="disallowedChars">文件名额外过滤字符（默认 <code>[]#^</code>）</label>
+                    <input type="text" id="disallowedChars" name="disallowedChars" role="textbox" />
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="group-title">🖱️ 右键菜单与 Obsidian</div>
+                <div class="field">
+                    <label class="check">
+                        <input name="contextMenus" id="contextMenus" type="checkbox" />
+                        <span>启用右键菜单</span>
+                    </label>
+                    <div class="hint">右键即可“存为/复制为 Markdown”。关闭后仍可用工具栏与快捷键。</div>
+                </div>
+                <details open class="vars">
+                    <summary>🔗 Obsidian 集成</summary>
+                    <div class="vars-body">
+                        <div class="note warn">
+                            需先在 Obsidian 安装社区插件 <strong>Advanced URI</strong>：
+                            设置 → 第三方插件 → 关闭安全模式 → 搜索 <code>Advanced URI</code> 安装启用。
+                            <a href="https://vinzent03.github.io/obsidian-advanced-uri/" target="_blank" rel="noopener noreferrer">文档</a>
+                        </div>
+                        <div class="field">
+                            <label class="check">
+                                <input name="obsidianIntegration" id="obsidianIntegration" type="checkbox" />
+                                <span>启用 Obsidian 集成</span>
+                            </label>
+                            <div class="hint">开启后右键会出现“发送到 Obsidian”。</div>
+                        </div>
+                        <div class="field">
+                            <label for="obsidianVault">仓库名（Vault Name）</label>
+                            <input type="text" name="obsidianVault" role="textbox" placeholder="OBSIdian" />
+                            <div class="hint">留空则用当前打开的库。本机库名是 <code>OBSIdian</code>。</div>
+                        </div>
+                        <div class="field">
+                            <label for="obsidianFolder">库内目标文件夹</label>
+                            <input type="text" name="obsidianFolder" role="textbox" placeholder="剪藏/" />
+                            <div class="hint">默认 <code>剪藏/</code>（不存在会自动创建）。</div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="group">
+                <div class="group-title">💾 导入 / 导出</div>
+                <div class="field row-inline">
+                    <button name="export" id="export">导出设置…</button>
+                    <button name="import" id="import">选择备份恢复…<input type="file" name="import-file" id="import-file" /></button>
+                </div>
+                <div class="hint">导出为 JSON 备份。AI 的 API Key 仅存本机、不会含在导出里。</div>
+            </div>
+        </section>
+
+        <!-- ════════════ 图片 ════════════ -->
+        <section class="tab-pane" id="pane-media">
+            <div class="group">
+                <div class="group-title">🖼️ 图片</div>
+                <div class="field">
+                    <label class="check">
+                        <input name="downloadImages" id="downloadImages" type="checkbox" />
+                        <span>把网页图片一并下载到本地</span>
+                    </label>
+                    <div class="hint">引用本地图片而非原图，避免防盗链/失效。</div>
+                </div>
+                <div class="field">
+                    <label for="imagePrefix">图片保存子目录（支持变量）</label>
+                    <input type="text" name="imagePrefix" id="imagePrefix" role="textbox" />
+                    <div class="hint">默认 <code>{pageTitle}/</code> 每篇一目录；改 <code>images/</code> 则统一归到 images。</div>
+                </div>
+            </div>
+
+            <div class="group">
+                <div class="group-title">正文引用方式</div>
+                <div class="radio-list" id="imageOptions">
+                    <label class="choice">
+                        <input type="radio" name="imageStyle" id="originalSource" value="originalSource" />
+                        <span><strong>原图地址</strong><code>![](http://…/a.jpg)</code></span>
+                    </label>
+                    <label class="choice">
+                        <input type="radio" name="imageStyle" id="noImage" value="noImage" />
+                        <span><strong>删除图片</strong><code>（正文不含图）</code></span>
+                    </label>
+                    <label class="choice">
+                        <input type="radio" name="imageStyle" id="markdown" value="markdown" />
+                        <span><strong>本地引用</strong><code>![](子目录/image.jpg)</code> <em>需下载图片</em></span>
+                    </label>
+                    <label class="choice">
+                        <input type="radio" name="imageStyle" id="base64" value="base64" />
+                        <span><strong>Base64 内嵌</strong><code>![](data:image/png;base64,…)</code></span>
+                    </label>
+                    <label class="choice">
+                        <input type="radio" name="imageStyle" id="obsidian" value="obsidian" />
+                        <span><strong>Obsidian 内嵌</strong><code>![[子目录/image.jpg]]</code></span>
+                    </label>
+                    <label class="choice">
+                        <input type="radio" name="imageStyle" id="obsidian-nofolder" value="obsidian-nofolder" />
+                        <span><strong>Obsidian 内嵌（不带文件夹）</strong><code>![[image.jpg]]</code></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="group" id="imageRefOptions">
+                <div class="group-title">本地图片引用语法</div>
+                <div class="radio-list">
+                    <label class="choice">
+                        <input type="radio" name="imageRefStyle" id="img-inlined" value="inlined" />
+                        <span><strong>内联式</strong><code>![](address/of/image.jpg)</code></span>
+                    </label>
+                    <label class="choice">
+                        <input type="radio" name="imageRefStyle" id="img-referenced" value="referenced" />
+                        <span><strong>引用式</strong><code>![][fig1]</code></span>
+                    </label>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════ 格式 ════════════ -->
+        <section class="tab-pane" id="pane-format">
+            <div class="group">
+                <div class="group-title">⚙️ Markdown 输出格式</div>
+                <div class="note">决定 HTML→Markdown 的排版风格。参考
+                    <a href="https://github.com/mixmark-io/turndown" target="_blank" rel="noopener noreferrer">Turndown</a>。</div>
+
+                <div class="field">
+                    <label>标题样式</label>
+                    <div class="radio-list" id="headingStyle">
+                        <label class="choice"><input type="radio" name="headingStyle" id="setext" value="setext" /><span>Setext 下划线 <code>All About Dogs<br>==============</code></span></label>
+                        <label class="choice"><input type="radio" name="headingStyle" id="atx" value="atx" /><span>ATX 井号 <code># All About Dogs</code></span></label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>分隔线样式</label>
+                    <div class="radio-list inline" id="hr">
+                        <label class="chip"><input type="radio" name="hr" id="***" value="***" /><code>***</code></label>
+                        <label class="chip"><input type="radio" name="hr" id="---" value="---" /><code>---</code></label>
+                        <label class="chip"><input type="radio" name="hr" id="___" value="___" /><code>___</code></label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>无序列表符号</label>
+                    <div class="radio-list inline" id="bulletListMarker">
+                        <label class="chip"><input type="radio" name="bulletListMarker" id="b*" value="*" /><code>*</code></label>
+                        <label class="chip"><input type="radio" name="bulletListMarker" id="b-" value="-" /><code>-</code></label>
+                        <label class="chip"><input type="radio" name="bulletListMarker" id="b+" value="+" /><code>+</code></label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>代码块样式</label>
+                    <div class="radio-list" id="codeBlockStyle">
+                        <label class="choice"><input type="radio" name="codeBlockStyle" id="indented" value="indented" /><span>缩进式 <code>····code</code></span></label>
+                        <label class="choice"><input type="radio" name="codeBlockStyle" id="fenced" value="fenced" /><span>围栏式 <code>```\ncode\n```</code></span></label>
+                    </div>
+                </div>
+
+                <div class="field" id="fence">
+                    <label>代码块围栏符号</label>
+                    <div class="radio-list inline">
+                        <label class="chip"><input type="radio" name="fence" id="f```" value="```" /><code>```</code></label>
+                        <label class="chip"><input type="radio" name="fence" id="f~~~" value="~~~" /><code>~~~</code></label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>斜体符号</label>
+                    <div class="radio-list inline" id="emDelimiter">
+                        <label class="chip"><input type="radio" name="emDelimiter" id="em_" value="_" /><code>_斜体_</code></label>
+                        <label class="chip"><input type="radio" name="emDelimiter" id="em*" value="*" /><code>*斜体*</code></label>
+                        <label class="chip"><input type="radio" name="emDelimiter" id="em__" value="__" /><code>__斜体__</code></label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>粗体符号</label>
+                    <div class="radio-list inline" id="strongDelimiter">
+                        <label class="chip"><input type="radio" name="strongDelimiter" id="s**" value="**" /><code>**粗体**</code></label>
+                        <label class="chip"><input type="radio" name="strongDelimiter" id="s__" value="__" /><code>__粗体__</code></label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>链接写法</label>
+                    <div class="radio-list" id="linkStyle">
+                        <label class="choice"><input type="radio" name="linkStyle" id="inlined" value="inlined" /><span>内联式 <code>[Google](http://google.com)</code></span></label>
+                        <label class="choice"><input type="radio" name="linkStyle" id="referenced" value="referenced" /><span>引用式 <code>[Google]\n\n[Google]: url</code></span></label>
+                        <label class="choice"><input type="radio" name="linkStyle" id="stripLinks" value="stripLinks" /><span>去掉链接 <code>Google</code></span></label>
+                    </div>
+                </div>
+
+                <div class="field" id="linkReferenceStyle">
+                    <label>引用编号样式（仅链接为引用式）</label>
+                    <div class="radio-list" >
+                        <label class="choice"><input type="radio" name="linkReferenceStyle" id="full" value="full" /><span>完整 <code>[Google][1]</code></span></label>
+                        <label class="choice"><input type="radio" name="linkReferenceStyle" id="collapsed" value="collapsed" /><span>折叠 <code>[Google][]</code></span></label>
+                        <label class="choice"><input type="radio" name="linkReferenceStyle" id="shortcut" value="shortcut" /><span>快捷 <code>[Google]</code></span></label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="check">
+                        <input name="turndownEscape" id="turndownEscape" type="checkbox" />
+                        <span>转义 Markdown 特殊字符</span>
+                    </label>
+                    <div class="hint">建议开启，避免正文里的 <code>1. Hello</code> 被误当列表。</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════ AI 优化 ════════════ -->
+        <section class="tab-pane" id="pane-ai">
+            <div class="group">
+                <div class="group-title">✨ AI 优化（DeepSeek）</div>
+                <div class="note">剪藏保存到本地 / Obsidian、右键发送前，会按你开启的选项让 DeepSeek 整理文本。
+                    也可在剪藏弹窗里手动点「AI 优化」。<strong>API Key 仅存本机</strong>，请求直发 DeepSeek。</div>
+
+                <div class="field">
+                    <label for="deepseekKey">DeepSeek API Key</label>
+                    <div class="row-inline">
+                        <input type="password" name="deepseekKey" id="deepseekKey" role="textbox" autocomplete="off" placeholder="sk-…" />
+                        <button type="button" id="keySave" class="mini">保存</button>
+                    </div>
+                    <div class="hint">填一次即保存（本地）。清空后回车可删除。获取：<a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">DeepSeek 开放平台</a></div>
+                </div>
+
+                <div class="field">
+                    <label class="check">
+                        <input name="aiEnabled" id="aiEnabled" type="checkbox" />
+                        <span>启用 AI 优化（剪藏保存/发送前自动整理）</span>
+                    </label>
+                </div>
+
+                <div id="aiOptionsBlock" class="hidden">
+                    <div class="field">
+                        <label class="check">
+                            <input name="aiClean" id="aiClean" type="checkbox" />
+                            <span>基础整理：去乱码、重排标题、统一格式、保留原文</span>
+                        </label>
+                    </div>
+                    <div class="field">
+                        <label class="check">
+                            <input name="aiTags" id="aiTags" type="checkbox" />
+                            <span>自动打标签</span>
+                        </label>
+                    </div>
+                    <div class="field">
+                        <label class="check">
+                            <input name="aiSummary" id="aiSummary" type="checkbox" />
+                            <span>生成摘要</span>
+                        </label>
+                    </div>
+                    <div class="field">
+                        <label class="check">
+                            <input name="aiTranslate" id="aiTranslate" type="checkbox" />
+                            <span>翻译</span>
+                        </label>
+                    </div>
+                    <div id="aiTargetLangWrap" class="field hidden">
+                        <label for="aiTargetLang">目标语言</label>
+                        <input type="text" name="aiTargetLang" id="aiTargetLang" role="textbox" placeholder="简体中文" />
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="spinner" style="display:none;"></div>
     <div id="status" class="status"></div>
 
     <script src="../browser-polyfill.min.js"></script>
     <script src="../shared/default-options.js"></script>
     <script src="options.js"></script>
 </body>
-
 </html>

@@ -97,6 +97,12 @@ const saveOptions = (e) => {
     obsidianIntegration: document.querySelector("[name='obsidianIntegration']").checked,
     obsidianVault: document.querySelector("[name='obsidianVault']").value,
     obsidianFolder: document.querySelector("[name='obsidianFolder']").value,
+    aiEnabled: document.querySelector("[name='aiEnabled']").checked,
+    aiClean: document.querySelector("[name='aiClean']").checked,
+    aiTags: document.querySelector("[name='aiTags']").checked,
+    aiSummary: document.querySelector("[name='aiSummary']").checked,
+    aiTranslate: document.querySelector("[name='aiTranslate']").checked,
+    aiTargetLang: document.querySelector("[name='aiTargetLang']").value,
 
     headingStyle: getCheckedValue(document.querySelectorAll("input[name='headingStyle']")),
     hr: getCheckedValue(document.querySelectorAll("input[name='hr']")),
@@ -177,6 +183,13 @@ const setCurrentChoice = (result) => {
   document.querySelector("[name='obsidianVault']").value = options.obsidianVault || '';
   document.querySelector("[name='obsidianFolder']").value = options.obsidianFolder || '';
 
+  document.querySelector("[name='aiEnabled']").checked = !!options.aiEnabled;
+  document.querySelector("[name='aiClean']").checked = options.aiClean !== false;
+  document.querySelector("[name='aiTags']").checked = !!options.aiTags;
+  document.querySelector("[name='aiSummary']").checked = !!options.aiSummary;
+  document.querySelector("[name='aiTranslate']").checked = !!options.aiTranslate;
+  document.querySelector("[name='aiTargetLang']").value = options.aiTargetLang || '';
+
   setCheckedValue(document.querySelectorAll("[name='headingStyle']"), options.headingStyle);
   setCheckedValue(document.querySelectorAll("[name='hr']"), options.hr);
   setCheckedValue(document.querySelectorAll("[name='bulletListMarker']"), options.bulletListMarker);
@@ -203,15 +216,37 @@ const restoreOptions = () => {
       setCurrentChoice(result);
     })
     .catch((err) => console.error(err));
+  // DeepSeek API Key 仅存本机（storage.local），不回显明文。
+  browser.storage.local.get({ deepseekKey: '' })
+    .then(({ deepseekKey }) => {
+      const el = document.querySelector("[name='deepseekKey']");
+      if (el) { el.value = deepseekKey ? '••••••••' : ''; el.dataset.has = deepseekKey ? '1' : '0'; }
+    })
+    .catch((err) => console.error(err));
 };
 
 function sizeTextarea(el) { el.parentNode.dataset.value = el.value; }
 
+// 折叠面板显隐：仅切换 .hidden 类（由 CSS 控制），比“测量高度后定高”更稳，
+// 即使容器初始处于隐藏的分页里也不会量到 0 高度。
 const show = (el, shouldShow) => {
   if (!el) return;
-  el.style.height = shouldShow ? el.dataset.height + 'px' : "0";
-  el.style.opacity = shouldShow ? "1" : "0";
+  if (shouldShow) el.classList.remove('hidden');
+  else el.classList.add('hidden');
 };
+
+// 底部状态条即时提示（保存成功 / API Key 已存等）。
+function flashStatus(message) {
+  document.querySelectorAll('.status').forEach(s => {
+    s.textContent = message;
+    s.classList.remove('error');
+    s.classList.add('success');
+    s.style.opacity = 1;
+  });
+  setTimeout(() => {
+    document.querySelectorAll('.status').forEach(s => { s.style.opacity = 0; });
+  }, 3000);
+}
 
 const refereshElements = () => {
   // “链接引用编号”只在链接样式为“引用式”时显示。
@@ -228,6 +263,10 @@ const refereshElements = () => {
     const el = document.getElementById(id);
     if (el) el.disabled = !downloadImages;
   });
+  // AI 优化：总开关开启才显示具体能力选项。
+  show(document.getElementById("aiOptionsBlock"), !!options.aiEnabled);
+  // 翻译开启才显示目标语言。
+  show(document.getElementById("aiTargetLangWrap"), !!options.aiEnabled && !!options.aiTranslate);
 };
 
 const inputChange = (e) => {
@@ -254,6 +293,26 @@ const inputChange = (e) => {
   } else if (key == "folderPreset") {
     // 文件夹预设卡片：直接落 mdClipsFolder 并保存。
     handleFolderPreset(String(value));
+  } else if (key == "deepseekKey") {
+    // DeepSeek Key 仅存本机（storage.local），不回显明文、不入 sync/导出。
+    const DOTS = '••••••••';
+    const el = e.target;
+    let v = String(value || '').trim();
+    const hasKey = el.dataset.has === '1';
+    if (hasKey && v === DOTS) return; // 未改动，保留已存 Key
+    if (hasKey && v.startsWith(DOTS)) v = v.slice(DOTS.length).trim(); // 已打码后继续输入：只取新输入
+    if (!v) { // 清空 → 删除本机 Key
+      browser.storage.local.remove('deepseekKey').catch(() => {});
+      el.dataset.has = '0';
+      return;
+    }
+    browser.storage.local.set({ deepseekKey: v }).catch((err) => console.error(err));
+    el.dataset.has = '1';
+    el.value = DOTS; // 存后立即打码
+  } else if (key == "aiEnabled") {
+    options[key] = !!e.target.checked;
+    save();
+    refereshElements();
   } else {
     if (e.target.type == "checkbox") value = e.target.checked;
     options[key] = value;
@@ -279,6 +338,15 @@ const buttonClick = (e) => {
     document.getElementById("import-file").click();
   } else if (e.target.id == "export") {
     exportOptions();
+  } else if (e.target.id == "keySave") {
+    const el = document.querySelector("[name='deepseekKey']");
+    if (el) {
+      // 若已是打码占位（已存且未改动），无需重复写入。
+      if (!(el.dataset.has === '1' && el.value === '••••••••')) {
+        inputChange({ target: el });
+      }
+      flashStatus('API Key 已保存到本机 🔒');
+    }
   }
 };
 
@@ -307,11 +375,23 @@ function fallbackSave(url, filename) {
   setTimeout(() => a.remove(), 100);
 }
 
-const loaded = () => {
-  document.querySelectorAll('.radio-container,.checkbox-container,.textbox-container,.button-container').forEach(container => {
-    container.dataset.height = container.clientHeight;
+// 顶部标签页切换（基础 / 图片 / 格式 / AI 优化）。
+const initTabs = () => {
+  const tabs = document.querySelectorAll('.tab');
+  const panes = document.querySelectorAll('.tab-pane');
+  if (!tabs.length) return;
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.toggle('active', t === tab));
+      panes.forEach(p => p.classList.toggle('active', p.id === 'pane-' + tab.dataset.tab));
+      const body = document.querySelector('.panel-body');
+      if (body) body.scrollTop = 0;
+    });
   });
+};
 
+const loaded = () => {
+  initTabs();
   restoreOptions();
 
   document.querySelectorAll('input,textarea,button').forEach(input => {
@@ -323,6 +403,18 @@ const loaded = () => {
       input.addEventListener('change', inputChange);
     }
   });
+
+  // DeepSeek Key 输入框：回车即失焦触发 change → 自动存本机。
+  const keyEl = document.querySelector("[name='deepseekKey']");
+  if (keyEl) {
+    keyEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        keyEl.blur();
+        flashStatus('API Key 已保存到本机 🔒');
+      }
+    });
+  }
 };
 
 document.addEventListener("DOMContentLoaded", loaded);

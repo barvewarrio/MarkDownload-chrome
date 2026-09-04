@@ -31,7 +31,10 @@
     "open_in_tab": false,
     "page": "options/options.html"
   },
-  "permissions": ["activeTab", "downloads", "storage", "contextMenus", "clipboardWrite", "scripting", "offscreen", "tabs"],
+  "side_panel": {
+    "default_path": "options/options.html"
+  },
+  "permissions": ["activeTab", "downloads", "storage", "contextMenus", "clipboardWrite", "scripting", "offscreen", "sidePanel", "tabs"],
   "host_permissions": ["<all_urls>"],
   "commands": {
     "_execute_action": {

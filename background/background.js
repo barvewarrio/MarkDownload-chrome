@@ -335,6 +335,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // 弹窗 → worker → 离屏：手动「✨ AI 优化」当前编辑区文本。
+  // 设置与 Key 由离屏侧自读（Key 仅存本机 storage.local），失败保留原文。
+  if (message && message.type === 'md:aiPolish') {
+    offscreen('aiPolish', { markdown: message.markdown })
+      .then((res) => sendResponse({ ok: true, markdown: res.markdown, applied: res.applied }))
+      .catch((err) => sendResponse({ ok: false, error: String(err && err.message || err) }));
+    return true;
+  }
+
   return undefined;
 });
 

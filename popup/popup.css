@@ -128,25 +128,45 @@ a.button {
     border-collapse: collapse;
 }
 
-#options {
+/* ⚙️ 设置：打开右侧面板的次级按钮 */
+#openSettings {
     display: block;
-    position: absolute;
-    top:2px;
-    right:2px;
-    font-size: 0;
-    text-decoration: none;
-    background-color: var(--primary);
-    color: var(--fg-primary);
-    border-radius: 2rem;
-    width: 2rem;
-    height: 2rem;
+    width: 100%;
+    padding: 0.4em 0;
+    margin-top: 2px;
+    background: transparent;
+    color: var(--primary);
     text-align: center;
-    line-height: 2rem;
-    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+    font-size: 0.85em;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
 }
-#options::before {
-    content: '⚙';
-    font-size: 1rem;
+#openSettings:hover {
+    background: var(--bg-primary);
+}
+
+/* 轻量提示条 */
+#toast {
+    position: fixed;
+    left: 50%;
+    bottom: 10px;
+    transform: translateX(-50%);
+    max-width: 90%;
+    padding: 6px 12px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.78);
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.4;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+    z-index: 50;
+}
+#toast.error {
+    background: rgba(190, 40, 40, 0.9);
 }
 
 #downloadSelection {

@@ -27,4 +27,11 @@ const defaultOptions = {
   obsidianIntegration: false,
   obsidianVault: "",
   obsidianFolder: "剪藏/",
+  // DeepSeek AI 优化（Key 单独存 storage.local，不进此表）
+  aiEnabled: false,
+  aiClean: true,
+  aiTags: false,
+  aiSummary: false,
+  aiTranslate: false,
+  aiTargetLang: "",
 }

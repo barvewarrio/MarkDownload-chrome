@@ -27,7 +27,8 @@ const defaultOptions = {
   backmatter: "", title: "{pageTitle}", includeTemplate: false, saveAs: false,
   downloadImages: false, imagePrefix: '{pageTitle}/', mdClipsFolder: "",
   disallowedChars: '[]#^', turndownEscape: true,
-  contextMenus: true, obsidianIntegration: false, obsidianVault: "", obsidianFolder: "剪藏/"
+  contextMenus: true, obsidianIntegration: false, obsidianVault: "", obsidianFolder: "剪藏/",
+  aiEnabled: false, aiClean: true, aiTags: false, aiSummary: false, aiTranslate: false, aiTargetLang: ""
 };
 
 async function getOptions() {
@@ -399,6 +400,123 @@ async function getArticleFromDom(domString) {
 }
 
 // ---------------------------------------------------------------------------
+// DeepSeek AI 优化
+// ---------------------------------------------------------------------------
+// 剪藏保存 / 发送前，可按设置让 DeepSeek 整理文本（去乱码 / 重排标题 / 统一
+// 格式，可选自动打标签、生成摘要、翻译）。API Key 由用户在本机设置，仅存
+// storage.local，绝不同步云端、不入导出；请求直发 DeepSeek。
+// 任何失败都保留原文，绝不让 AI 问题弄丢剪藏内容。
+
+async function getDeepseekKey() {
+  try {
+    const { deepseekKey } = await browser.storage.local.get({ deepseekKey: '' });
+    return (typeof deepseekKey === 'string' ? deepseekKey : '').trim();
+  } catch (err) {
+    console.error('读取 DeepSeek Key 失败', err);
+    return '';
+  }
+}
+
+// 是否需要真的请求 AI（总开关 + 至少一项能力开启）。
+function aiWanted(options) {
+  return !!(options.aiEnabled &&
+    (options.aiClean || options.aiTags || options.aiSummary || options.aiTranslate));
+}
+
+function buildAiSystemPrompt(options) {
+  const parts = [];
+  const lang = (options.aiTargetLang || '').trim() || '简体中文';
+
+  parts.push(
+    '你是一名专业的 Markdown 文档整理助手。下面“原文”是一段网页剪藏得到的 Markdown，' +
+    '可能含有乱码、错乱的标题层级、多余空行、混用的项目符号。'
+  );
+
+  if (options.aiClean) {
+    parts.push(
+      '【基础整理】① 只清理明显因编码损坏产生的乱码（如 ????、锟斤拷、Ã© 之类），' +
+      '绝不删改、概括或臆造原文内容；② 理顺标题层级：首个标题用 #，其后逐级且不跳级，去掉空标题；' +
+      '③ 统一格式：列表符统一用 -、分隔线统一用 ---、代码块统一用 ```、段落间空一行；' +
+      '④ 保留原文全部信息与先后顺序。图片引用（![](…) 的路径与文件名）、链接、代码块、表格的文本必须原样保留，不得改写。'
+    );
+  }
+
+  const extras = [];
+  if (options.aiSummary) {
+    extras.push(
+      '在正文开头（第一个标题之后）插入块引用形式的摘要：`> **摘要：** 用两到三句话概括全文核心`。' +
+      '若原文已自带摘要或导语，可凝练后复用，不要重复堆砌。'
+    );
+  }
+  if (options.aiTags) {
+    extras.push(
+      '在文末空一行后，另起一行输出 3~6 个精准、贴合全文主题的标签，Obsidian 风格：' +
+      '一行、以空格分隔、每个标签前加 #（例如 `#浏览器 #Markdown #效率`）。' +
+      '不要使用 YAML frontmatter，也不要为标签另起标题。'
+    );
+  }
+  if (options.aiTranslate) {
+    extras.push(
+      `把正文翻译成${lang}：忠实传达原意，保留 Markdown 结构、代码块、图片引用、链接与专有名词` +
+      `（人名、地名、产品名可保留原文）。若同时要求摘要或标签，摘要与标签也用${lang}给出。`
+    );
+  }
+  if (extras.length) parts.push('【附加能力】请一并完成：' + extras.join(''));
+
+  parts.push(
+    '只输出处理后的完整 Markdown 本身：不要任何解释、不要包裹代码围栏、不要遗漏正文任何部分、' +
+    '不要添加原文没有的信息。'
+  );
+  return parts.join('\n');
+}
+
+// 调用 DeepSeek 整理一段 markdown。一切失败（含超时、Key 缺失、接口错误）都原样返回。
+async function aiPolish(markdown, options) {
+  const text = String(markdown || '');
+  if (!text.trim()) return text;
+  const key = await getDeepseekKey();
+  if (!key) { console.warn('AI 优化跳过：未配置 DeepSeek API Key'); return text; }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90000);
+  try {
+    const res = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + key,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: buildAiSystemPrompt(options) },
+          { role: 'user', content: '原文：\n' + text },
+        ],
+        temperature: 0.1,
+        max_tokens: 8192,
+        stream: false,
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error('DeepSeek HTTP ' + res.status + ' ' + body.slice(0, 200));
+    }
+    const data = await res.json();
+    const out = data && data.choices && data.choices[0] &&
+      data.choices[0].message && data.choices[0].message.content;
+    if (!out) throw new Error('DeepSeek 返回为空');
+    const trimmed = String(out).trim();
+    return trimmed || text;
+  } catch (err) {
+    console.warn('AI 优化失败，保留原文：', err && err.message || err);
+    return text;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // IPC
 // ---------------------------------------------------------------------------
 browser.runtime.onMessage.addListener((message) => {
@@ -414,7 +532,16 @@ browser.runtime.onMessage.addListener((message) => {
         const { markdown, imageList } = await convertArticleToMarkdown(article);
         article.title = await formatTitle(article);
         const mdClipsFolder = await formatMdClipsFolder(article);
-        return { ok: true, markdown: markdown, article: article, imageList: imageList, mdClipsFolder: mdClipsFolder };
+        // 保存到本地 / Obsidian、右键发送等全流程都在此处定稿 Markdown；
+        // 若开启了 AI 优化，在这里统一加工一次（失败则原样保留）。
+        let finalMarkdown = markdown;
+        try {
+          const opts = await getOptions();
+          if (aiWanted(opts)) finalMarkdown = await aiPolish(markdown, opts);
+        } catch (err) {
+          console.warn('自动 AI 优化失败，保留原文：', err && err.message || err);
+        }
+        return { ok: true, markdown: finalMarkdown, article: article, imageList: imageList, mdClipsFolder: mdClipsFolder };
       } catch (err) {
         return { ok: false, error: String(err && err.message || err) };
       }
@@ -455,6 +582,24 @@ browser.runtime.onMessage.addListener((message) => {
         const article = await getArticleFromDom(message.dom);
         const title = await formatTitle(article);
         return { ok: true, title: title, pageTitle: article.pageTitle, baseURI: article.baseURI };
+      } catch (err) {
+        return { ok: false, error: String(err && err.message || err) };
+      }
+    })();
+  }
+
+  // 弹窗「✨ AI 优化」手动按钮：对当前编辑区文本加工一次。
+  // 未开启 / 失败时原样返回，绝不丢内容。
+  if (message.action === 'aiPolish') {
+    return (async () => {
+      try {
+        const options = await getOptions();
+        const input = String(message.markdown || '');
+        if (!aiWanted(options)) {
+          return { ok: true, markdown: input, applied: false };
+        }
+        const out = await aiPolish(input, options);
+        return { ok: true, markdown: out, applied: out !== input };
       } catch (err) {
         return { ok: false, error: String(err && err.message || err) };
       }
