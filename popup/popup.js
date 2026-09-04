@@ -204,7 +204,7 @@ async function polishWithAI() {
           showToast('AI 优化未开启，请先到 ⚙️ 设置中开启并配置', true);
           return;
         }
-        showToast('AI 未对内容做改动', false);
+        showToast('AI 已处理：内容本身较整洁，未发现需改动之处', false);
         return;
       }
       cm.setValue(res.markdown);
