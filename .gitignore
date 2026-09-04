@@ -1,0 +1,16 @@
+# 敏感文件：签名私钥 / 打包产物 / 凭据 —— 绝不提交
+*.pem
+*.key
+*.p12
+*.pfx
+*.crx
+*.snap
+.env
+.env.*
+*.secret
+
+# macOS
+.DS_Store
+
+# 本地说明（含本机绝对路径），不入库
+安装说明.md

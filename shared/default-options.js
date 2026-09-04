@@ -1,0 +1,30 @@
+// 默认设置 —— 供 options 页面直接读取。
+// 引擎与 service worker 用 shared/options-module.js 里的 ES-module 版本；
+// 两处请保持一致。
+const defaultOptions = {
+  headingStyle: "atx",
+  hr: "___",
+  bulletListMarker: "-",
+  codeBlockStyle: "fenced",
+  fence: "```",
+  emDelimiter: "_",
+  strongDelimiter: "**",
+  linkStyle: "inlined",
+  linkReferenceStyle: "full",
+  imageStyle: "markdown",
+  imageRefStyle: "inlined",
+  frontmatter: "---\ncreated: {date:YYYY-MM-DDTHH:mm:ss} (UTC {date:Z})\ntags: [{keywords}]\nsource: {baseURI}\nauthor: {byline}\n---\n\n# {pageTitle}\n\n> ## Excerpt\n> {excerpt}\n\n---",
+  backmatter: "",
+  title: "{pageTitle}",
+  includeTemplate: false,
+  saveAs: false,
+  downloadImages: false,
+  imagePrefix: '{pageTitle}/',
+  mdClipsFolder: "",
+  disallowedChars: '[]#^',
+  turndownEscape: true,
+  contextMenus: true,
+  obsidianIntegration: false,
+  obsidianVault: "",
+  obsidianFolder: "剪藏/",
+}

@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "MarkDownload - Markdown Web Clipper (MV3)",
+  "version": "3.4.0",
+  "description": "This extension works like a web clipper, but it downloads articles in markdown format. MV3 build for Chrome/Edge.",
+  "author": "Gordon Pedsersen",
+  "minimum_chrome_version": "116",
+  "icons": {
+    "16": "icons/favicon-16x16.png",
+    "32": "icons/favicon-32x32.png",
+    "48": "icons/favicon-48x48.png",
+    "128": "icons/appicon-128x128.png",
+    "192": "icons/favicon-192x192.png",
+    "512": "icons/favicon-512x512.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/favicon-16x16.png",
+      "32": "icons/favicon-32x32.png",
+      "48": "icons/favicon-48x48.png",
+      "128": "icons/appicon-128x128.png"
+    },
+    "default_title": "MarkDownload",
+    "default_popup": "popup/popup.html"
+  },
+  "background": {
+    "service_worker": "background/background.js",
+    "type": "module"
+  },
+  "options_ui": {
+    "open_in_tab": false,
+    "page": "options/options.html"
+  },
+  "permissions": ["activeTab", "downloads", "storage", "contextMenus", "clipboardWrite", "scripting", "offscreen", "tabs"],
+  "host_permissions": ["<all_urls>"],
+  "commands": {
+    "_execute_action": {
+      "suggested_key": { "default": "Alt+Shift+M" }
+    },
+    "download_tab_as_markdown": {
+      "description": "Save current tab as Markdown",
+      "suggested_key": { "default": "Alt+Shift+D" }
+    },
+    "copy_tab_as_markdown": {
+      "description": "Copy current tab as Markdown to the clipboard"
+    },
+    "copy_selection_as_markdown": {
+      "description": "Copy current selection as Markdown to the clipboard"
+    },
+    "copy_tab_as_markdown_link": {
+      "description": "Copy current tab URL as Markdown link to the clipboard",
+      "suggested_key": { "default": "Alt+Shift+L" }
+    },
+    "copy_selected_tab_as_markdown_link": {
+      "description": "Copy selected tabs URL as Markdown link to the clipboard"
+    },
+    "copy_selection_to_obsidian": {
+      "description": "Copy current selection as Markdown to Obsidian"
+    },
+    "copy_tab_to_obsidian": {
+      "description": "Copy current tab as Markdown to Obsidian"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["contentScript/pageContext.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
